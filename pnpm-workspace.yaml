@@ -1,3 +1,10 @@
-ignoredBuiltDependencies:
+onlyBuiltDependencies:
+  - '@clerk/shared'
+  - '@tailwindcss/oxide'
   - sharp
+ignoredBuiltDependencies:
   - unrs-resolver
+allowBuilds:
+  '@clerk/shared': true
+  '@tailwindcss/oxide': true
+  sharp: true

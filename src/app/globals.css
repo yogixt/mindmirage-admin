@@ -1,26 +1,321 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ───────────────────────────────────────────────────────────
+   Mind Mirage · Pure White aesthetic
+   White paper · black ink · terracotta rounded CTAs (Adiveda-style)
+   Instrument Serif (display) · Inter (body) · Noto Serif Devanagari (Sanskrit)
+   ─────────────────────────────────────────────────────────── */
+
+@theme {
+  /* Paper tones — pure white, soft gray steps for section rhythm */
+  --color-paper: #FFFFFF;          /* pure white base */
+  --color-paper-warm: #FAFAFA;     /* near-white tint */
+  --color-paper-cream: #FFFFFF;    /* lightest — raised cards */
+  --color-paper-deep: #F5F5F5;     /* very light gray band */
+  --color-paper-ochre: #F0F0F0;    /* slightly darker gray for emphasis */
+
+  /* Ink — pure black scale */
+  --color-ink: #0A0A0A;            /* near-black */
+  --color-ink-soft: #525252;       /* neutral mid gray */
+  --color-ink-faint: #A3A3A3;      /* light gray for captions */
+
+  /* Accents — terracotta CTAs, gold ornament */
+  --color-gold: #C9A227;
+  --color-gold-soft: #E8D5A0;
+  --color-saffron: #C0531F;        /* adiveda terracotta — buttons/CTAs */
+  --color-terracotta: #C0531F;     /* explicit alias */
+  --color-clay: #9C5530;           /* muted clay for hovers/borders */
+  --color-maroon: #5C1A1B;
+  --color-indigo: #1a0f3c;
+  --color-indigo-deep: #0d0920;
+
+  /* Fonts — wired to next/font CSS variables */
+  --font-display: var(--font-instrument-serif), "Cormorant Garamond", Georgia, serif;
+  --font-body: var(--font-inter), system-ui, -apple-system, sans-serif;
+  --font-deva: var(--font-noto-deva), "Sanskrit Text", Georgia, serif;
+
+  /* Animation tokens — enable utility classes */
+  --animate-fade-rise: fade-rise 0.8s ease-out forwards;
+  --animate-fade-rise-delay: fade-rise 0.8s ease-out 0.2s forwards;
+  --animate-fade-rise-delay-2: fade-rise 0.8s ease-out 0.4s forwards;
+  --animate-fade-rise-delay-3: fade-rise 0.8s ease-out 0.6s forwards;
+  --animate-fade-in: fade-in 1.2s ease-out forwards;
+  --animate-breath-in: breath-in 3.2s ease forwards;
+  --animate-breath-out: breath-out 2s ease forwards;
+  --animate-breath-hold: breath-hold 1.8s ease infinite;
+  --animate-om-glow: om-glow 4s ease-in-out infinite;
+  --animate-shimmer: shimmer 8s linear infinite;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@keyframes fade-rise {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: none; }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes breath-in {
+  from { transform: scale(0.85); opacity: 0.4; }
+  to { transform: scale(1.55); opacity: 0.9; }
+}
+
+@keyframes breath-out {
+  from { transform: scale(1.55); opacity: 0.9; }
+  to { transform: scale(0.85); opacity: 0.4; }
+}
+
+@keyframes breath-hold {
+  0%, 100% { transform: scale(1.55); opacity: 0.9; }
+  50% { transform: scale(1.6); opacity: 1; }
+}
+
+@keyframes om-glow {
+  0%, 100% { opacity: 0.7; text-shadow: 0 0 24px rgba(201, 162, 39, 0.4); }
+  50% { opacity: 1; text-shadow: 0 0 48px rgba(201, 162, 39, 0.8); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Base */
+:root { color-scheme: light; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+
+/* Sanskrit / Devanagari — 1.6 line-height clears stacked diacritics
+   without the airy double-spacing look */
+.deva {
+  font-family: var(--font-deva);
+  font-weight: 400;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+}
+
+/* Devanagari-styled Latin — Yatra One. Renders English in a visibly
+   Indian / Bollywood-poster script style. */
+.deva-latin {
+  font-family: var(--font-yatra), var(--font-deva), serif;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+/* Uiverse-style arrow button — earth-brown pill + gold icon pocket + animated arrow */
+.arrow-btn {
+  display: inline-flex;
+  width: 170px;
+  height: -moz-fit-content;
+  height: fit-content;
+  background-color: var(--color-ink);
+  border-radius: 40px;
+  box-shadow: 0px 5px 14px rgba(0, 0, 0, 0.18);
+  justify-content: space-between;
+  align-items: center;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  padding: 0;
+}
+.arrow-btn__icon {
+  width: 45px;
+  height: 45px;
+  background-color: var(--color-gold-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 3px solid var(--color-ink);
+  color: var(--color-ink);
+  flex-shrink: 0;
+}
+.arrow-btn__text {
+  width: calc(170px - 45px);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-paper-cream);
+  font-size: 1.1em;
+  letter-spacing: 1.2px;
+}
+.arrow-btn__icon svg {
+  transition-duration: 1.5s;
+}
+.arrow-btn:hover .arrow-btn__icon svg {
+  animation: arrow-btn-arrow 1s linear infinite;
+}
+@keyframes arrow-btn-arrow {
+  0%   { opacity: 0; margin-left: 0px; }
+  100% { opacity: 1; margin-left: 10px; }
+}
+
+/* Handwritten — Kalam. Pairs with .handwritten-highlight for a marker effect. */
+.handwritten {
+  font-family: var(--font-kalam), "Kalam", cursive;
+  font-weight: 400;
+  letter-spacing: 0.005em;
+}
+
+/* White marker-highlight stroke behind handwritten text. box-decoration-break
+   makes the highlight continue cleanly across each wrapped line. */
+.handwritten-highlight {
+  background: #ffffff;
+  color: var(--color-ink);
+  padding: 0.12em 0.45em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  box-shadow: 0 4px 18px -10px rgba(0, 0, 0, 0.25);
+}
+
+.sanskrit-italic {
+  font-family: var(--font-display);
+  font-style: italic;
+  letter-spacing: 0.01em;
+}
+
+/* Display heading */
+.display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  line-height: 0.95;
+  letter-spacing: -0.025em;
+}
+
+/* Eyebrow / micro-label */
+.eyebrow {
+  font-family: var(--font-body);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--color-ink-soft);
+}
+
+/* Ornamental section star — used in dividers */
+.ornament {
+  font-family: var(--font-display);
+  color: var(--color-gold);
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+/* Liquid-glass surface — used on the cinematic contact page */
+.liquid-glass {
+  background: rgba(255,255,255,0.01);
+  background-blend-mode: luminosity;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: none;
+  box-shadow: inset 0 1px 1px rgba(255,255,255,0.1);
+  position: relative;
+  overflow: hidden;
+}
+.liquid-glass::before {
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  padding: 1.4px;
+  background: linear-gradient(180deg,
+    rgba(255,255,255,0.45) 0%,
+    rgba(255,255,255,0.15) 20%,
+    rgba(255,255,255,0) 40%,
+    rgba(255,255,255,0) 60%,
+    rgba(255,255,255,0.15) 80%,
+    rgba(255,255,255,0.45) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Subtle scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); }
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.3); }
+
+::selection { background: var(--color-gold-soft); color: var(--color-ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* MDX prose styling — blog post body */
+.prose-mm {
+  font-family: var(--font-body);
+  color: var(--color-ink);
+  font-size: 1.0625rem;
+  line-height: 1.8;
 }
+.prose-mm > * + * { margin-top: 1.4em; }
+.prose-mm h2 {
+  font-family: var(--font-display);
+  font-size: 1.875rem;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  margin-top: 2.5em;
+  margin-bottom: 0.4em;
+}
+.prose-mm h3 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  line-height: 1.2;
+  margin-top: 2em;
+  margin-bottom: 0.4em;
+}
+.prose-mm p { color: var(--color-ink); }
+.prose-mm strong { font-weight: 600; color: var(--color-ink); }
+.prose-mm em { font-style: italic; }
+.prose-mm a {
+  color: var(--color-ink);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: var(--color-gold);
+}
+.prose-mm a:hover { text-decoration-color: var(--color-ink); }
+.prose-mm blockquote {
+  border-left: 2px solid var(--color-gold);
+  padding-left: 1.25rem;
+  font-style: italic;
+  color: var(--color-ink-soft);
+  margin: 2em 0;
+}
+.prose-mm code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  background: var(--color-paper-cream);
+  padding: 0.1em 0.35em;
+  font-size: 0.92em;
+}
+.prose-mm ul, .prose-mm ol { padding-left: 1.5rem; }
+.prose-mm li { margin-top: 0.5em; }
+.prose-mm hr { border: none; border-top: 1px solid rgba(0, 0, 0, 0.1); margin: 3em 0; }
+
+/* ── Sant AI ── gentle float + golden aura pulse */
+@keyframes sant-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-7px); }
+}
+@keyframes sant-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(201, 162, 39, 0.45), 0 10px 30px -10px rgba(0, 0, 0, 0.25); }
+  50%      { box-shadow: 0 0 0 12px rgba(201, 162, 39, 0), 0 10px 30px -10px rgba(0, 0, 0, 0.25); }
+}
+.sant-float { animation: sant-float 3.2s ease-in-out infinite; }
+.sant-glow  { animation: sant-glow 2.6s ease-out infinite; }
