@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { isClerkConfigured } from "@/lib/auth";
+
 import { COURSES } from "@/lib/constants";
 import { journalDb } from "@/lib/journal";
 import { Card, PageHeader } from "../ui";
@@ -11,22 +11,24 @@ export const metadata: Metadata = { title: "Assignments" };
 export const dynamic = "force-dynamic";
 
 async function loadSadhaks() {
-  if (!isClerkConfigured()) return [];
+  const db = journalDb();
+  if (!db) return [];
   try {
-    const { createClerkClient } = await import("@clerk/backend");
-    const client = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
-    const { data } = await client.users.getUserList({ limit: 200, orderBy: "-created_at" });
-    return data.map((u) => ({
-      userId: u.id,
-      name:
-        [u.firstName, u.lastName].filter(Boolean).join(" ") ||
-        u.emailAddresses[0]?.emailAddress ||
-        "Sadhak",
-      avatar: u.imageUrl ?? null,
-      enrolled: ((u.publicMetadata.enrolledPrograms as string[]) ?? []).filter(
-        (s) => COURSES.some((c) => c.slug === s),
-      ),
-    }));
+    const rs = await db.execute("SELECT id, name, email, image, enrolled_programs FROM users");
+    return rs.rows.map((r) => {
+      let enrolled: string[] = [];
+      try {
+        enrolled = JSON.parse(String(r.enrolled_programs ?? "[]"));
+      } catch {
+        enrolled = [];
+      }
+      return {
+        userId: String(r.id),
+        name: r.name ? String(r.name) : String(r.email),
+        avatar: r.image ? String(r.image) : null,
+        enrolled: enrolled.filter((s) => COURSES.some((c) => c.slug === s)),
+      };
+    });
   } catch {
     return [];
   }

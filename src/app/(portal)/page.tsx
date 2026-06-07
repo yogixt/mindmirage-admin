@@ -10,7 +10,7 @@ import {
   TicketPercent,
   Users,
 } from "lucide-react";
-import { getSeeker, isClerkConfigured } from "@/lib/auth";
+import { getSeeker } from "@/lib/auth";
 import { journalDb } from "@/lib/journal";
 import { ActionCard, Card, IconStat, PageHeader } from "./ui";
 
@@ -110,14 +110,12 @@ async function loadData() {
   }
 
   let sadhaks = 0;
-  if (isClerkConfigured()) {
+  if (db) {
     try {
-      const { createClerkClient } = await import("@clerk/backend");
-      const client = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
-      const { totalCount } = await client.users.getUserList({ limit: 1 });
-      sadhaks = totalCount;
+      const rs = await db.execute("SELECT COUNT(*) AS cnt FROM users");
+      sadhaks = Number(rs.rows[0]?.cnt ?? 0);
     } catch {
-      // unreachable — show zero
+      // unreachable
     }
   }
 

@@ -83,8 +83,9 @@ export async function canReadNewsletters() {
   return isAdmin();
 }
 
-/* The team's Clerk backend key is still used as a DATA SOURCE for the
-   sadhak list — but no Clerk sign-in/middleware exists in this app. */
+/* Sadhaks are read from Turso DB — no Clerk. This stub is kept so
+   pages that used to import isClerkConfigured can still compile
+   while they migrate to the new data source. */
 export function isClerkConfigured() {
-  return !!process.env.CLERK_SECRET_KEY;
+  return true;
 }

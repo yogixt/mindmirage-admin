@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdmin } from "@/lib/auth";
+import { journalDb } from "@/lib/journal";
 import { CATALOG } from "@/lib/constants";
 
 /* Manual enrolment management — add or remove a course on a sādhak's
-   Clerk metadata. Used when payments happen off-site or need correction. */
+   Turso record. Used when payments happen off-site or need correction. */
 
 const Body = z.object({
   userId: z.string().min(1),
@@ -31,18 +32,37 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "unknown_course" }, { status: 400 });
   }
 
-  const { createClerkClient } = await import("@clerk/backend");
-  const client = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
-  const user = await client.users.getUser(userId);
-  const existing = ((user.publicMetadata.enrolledPrograms as string[]) ?? []).filter(Boolean);
+  const db = journalDb();
+  if (!db) {
+    return NextResponse.json({ ok: false, error: "no_database" }, { status: 500 });
+  }
+
+  const rs = await db.execute({
+    sql: "SELECT enrolled_programs FROM users WHERE id = ?",
+    args: [userId],
+  });
+  if (rs.rows.length === 0) {
+    return NextResponse.json({ ok: false, error: "user_not_found" }, { status: 404 });
+  }
+
+  let existing: string[] = [];
+  try {
+    existing = JSON.parse(String(rs.rows[0].enrolled_programs ?? "[]"));
+  } catch {
+    existing = [];
+  }
+
   const next =
     op === "add"
       ? existing.includes(slug)
         ? existing
         : [...existing, slug]
       : existing.filter((s) => s !== slug);
-  await client.users.updateUser(userId, {
-    publicMetadata: { ...user.publicMetadata, enrolledPrograms: next },
+
+  await db.execute({
+    sql: "UPDATE users SET enrolled_programs = ? WHERE id = ?",
+    args: [JSON.stringify(next), userId],
   });
+
   return NextResponse.json({ ok: true, enrolledPrograms: next });
 }

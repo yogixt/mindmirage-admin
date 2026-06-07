@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { isClerkConfigured } from "@/lib/auth";
 import { journalDb } from "@/lib/journal";
 import { Card, EmptyRow, PageHeader, Stat } from "../ui";
 import SadhaksList from "./SadhaksList";
@@ -21,71 +20,53 @@ type SadhakRow = {
 };
 
 async function loadSadhaks(): Promise<SadhakRow[]> {
-  if (!isClerkConfigured()) return [];
-  const { createClerkClient } = await import("@clerk/backend");
-  const client = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
-  const { data } = await client.users.getUserList({
-    limit: 200,
-    orderBy: "-created_at",
-  });
-  return data.map((u) => {
-    const meta = u.publicMetadata as {
-      enrolledPrograms?: string[];
-      city?: string;
-      preferredPath?: string;
-      whyISeek?: string;
-    };
-    return {
-      userId: u.id,
-      name:
-        [u.firstName, u.lastName].filter(Boolean).join(" ") ||
-        u.emailAddresses[0]?.emailAddress ||
-        "Sadhak",
-      email: u.emailAddresses[0]?.emailAddress ?? "—",
-      joined: new Date(u.createdAt).toLocaleDateString("en-IN", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }),
-      city: meta.city ?? "",
-      path: meta.preferredPath ?? "",
-      why: meta.whyISeek ?? "",
-      enrolled: (meta.enrolledPrograms ?? []).filter(Boolean),
-      bio: "",
-      intention: "",
-      avatar: u.imageUrl ?? null,
-    };
-  });
-}
-
-async function loadExtras() {
   const db = journalDb();
-  const map = new Map<string, { bio: string; intention: string; avatar: string }>();
-  if (!db) return map;
-  const rs = await db.execute(
-    "SELECT user_id, bio, intention, avatar FROM sadhak_profiles",
-  );
-  for (const r of rs.rows) {
-    map.set(String(r.user_id), {
-      bio: r.bio ? String(r.bio) : "",
-      intention: r.intention ? String(r.intention) : "",
-      avatar: r.avatar ? String(r.avatar) : "",
-    });
+  if (!db) return [];
+
+  const rs = await db.execute("SELECT * FROM users ORDER BY rowid DESC LIMIT 200");
+  const extras: Map<string, { bio: string; intention: string; avatar: string }> = new Map();
+  try {
+    const er = await db.execute(
+      "SELECT user_id, bio, intention, avatar FROM sadhak_profiles",
+    );
+    for (const r of er.rows) {
+      extras.set(String(r.user_id), {
+        bio: r.bio ? String(r.bio) : "",
+        intention: r.intention ? String(r.intention) : "",
+        avatar: r.avatar ? String(r.avatar) : "",
+      });
+    }
+  } catch {
+    // no sadhak_profiles table — proceed
   }
-  return map;
+
+  return rs.rows.map((r) => {
+    const userId = String(r.id);
+    const e = extras.get(userId);
+    let enrolled: string[] = [];
+    try {
+      enrolled = JSON.parse(String(r.enrolled_programs ?? "[]"));
+    } catch {
+      enrolled = [];
+    }
+    return {
+      userId,
+      name: r.name ? String(r.name) : String(r.email),
+      email: String(r.email),
+      joined: "",
+      city: r.city ? String(r.city) : "",
+      path: r.preferred_path ? String(r.preferred_path) : "",
+      why: r.why_i_seek ? String(r.why_i_seek) : "",
+      enrolled,
+      bio: e?.bio ?? "",
+      intention: e?.intention ?? "",
+      avatar: e?.avatar ?? null,
+    };
+  });
 }
 
 export default async function AdminSadhaksPage() {
   const sadhaks = await loadSadhaks();
-  const extras = await loadExtras();
-  for (const s of sadhaks) {
-    const e = extras.get(s.userId);
-    if (e) {
-      s.bio = e.bio;
-      s.intention = e.intention;
-      if (e.avatar) s.avatar = e.avatar;
-    }
-  }
   const enrolledCount = sadhaks.filter((s) => s.enrolled.length > 0).length;
 
   return (
