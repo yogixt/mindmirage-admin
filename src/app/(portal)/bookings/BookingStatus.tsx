@@ -18,14 +18,17 @@ export default function BookingStatus({
   status,
   dates,
   approvedDate,
+  paid: initialPaid,
 }: {
   id: number;
   status: string;
   dates: string;
   approvedDate: string | null;
+  paid: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [paid, setPaid] = useState(initialPaid);
   const [picked, setPicked] = useState<string[]>([]);
   const requested = dates
     .split(",")
@@ -38,13 +41,41 @@ export default function BookingStatus({
       await fetch("/api/bookings/admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, status: newStatus, approvedDates }),
+        body: JSON.stringify({ id, status: newStatus, approvedDates, paid }),
       });
       router.refresh();
     } finally {
       setBusy(false);
     }
   };
+
+  const togglePaid = async () => {
+    setBusy(true);
+    const next = !paid;
+    try {
+      await fetch("/api/bookings/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status, paid: next }),
+      });
+      setPaid(next);
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const paidBadge = paid ? (
+    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
+      <span className="size-1.5 rounded-full bg-emerald-600" />
+      Paid
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-bold text-amber-700">
+      <span className="size-1.5 rounded-full bg-amber-500" />
+      Unpaid
+    </span>
+  );
 
   if (status === "approved") {
     const confirmed = (approvedDate ?? "")
@@ -53,7 +84,17 @@ export default function BookingStatus({
       .filter(Boolean);
     return (
       <div className="shrink-0 text-right">
-        <div className="flex flex-wrap justify-end gap-1.5">
+        <div className="flex justify-end">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={togglePaid}
+            className="cursor-pointer"
+          >
+            {paidBadge}
+          </button>
+        </div>
+        <div className="mt-2 flex flex-wrap justify-end gap-1.5">
           {confirmed.map((d) => (
             <span
               key={d}
@@ -81,7 +122,17 @@ export default function BookingStatus({
   if (status === "declined") {
     return (
       <div className="shrink-0 text-right">
-        <span className="rounded-full bg-rose-50 px-4 py-1.5 text-xs font-semibold text-rose-600 ring-1 ring-rose-200">
+        <div className="flex justify-end">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={togglePaid}
+            className="cursor-pointer"
+          >
+            {paidBadge}
+          </button>
+        </div>
+        <span className="mt-2 inline-block rounded-full bg-rose-50 px-4 py-1.5 text-xs font-semibold text-rose-600 ring-1 ring-rose-200">
           Declined
         </span>
         <button
@@ -98,6 +149,16 @@ export default function BookingStatus({
 
   return (
     <div className="shrink-0">
+      <div className="mb-2 flex justify-end">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={togglePaid}
+          className="cursor-pointer"
+        >
+          {paidBadge}
+        </button>
+      </div>
       <p className="mb-1.5 text-right text-[11px] font-semibold text-ink-faint">
         Tap dates to approve:
       </p>

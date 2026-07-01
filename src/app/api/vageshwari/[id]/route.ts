@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/auth";
-import { journalDb } from "@/lib/journal";
+import { mindMirageDb } from "@/lib/db";
 
 /* Team-only: remove a post and its likes/comments. */
 export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const db = journalDb();
+  const db = mindMirageDb();
   if (!db) {
     return NextResponse.json(
-      { ok: false, error: "newsletters_not_configured" },
+      { ok: false, error: "vageshwari_not_configured" },
       { status: 503 },
     );
   }

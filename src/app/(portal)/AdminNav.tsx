@@ -14,18 +14,22 @@ import {
   ShoppingBag,
   TicketPercent,
   Users,
+  Sparkles,
+  Flower2,
 } from "lucide-react";
 
 const ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/newsletters", label: "Newsletters", icon: Newspaper },
+  { href: "/vageshwari", label: "Vageshwari", icon: Newspaper },
   { href: "/assignments", label: "Assignments", icon: ClipboardCheck },
   { href: "/availability", label: "Availability", icon: CalendarDays },
   { href: "/bookings", label: "Bookings", icon: NotebookPen },
+  { href: "/events", label: "Events", icon: Flower2 },
   { href: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/sadhaks", label: "Sadhaks", icon: Users },
   { href: "/orders", label: "Orders", icon: ShoppingBag },
   { href: "/coupons", label: "Coupons", icon: TicketPercent },
+  { href: "/assistant", label: "Kutir AI Assistant", icon: Sparkles },
   { href: "/access", label: "Access log", icon: ShieldCheck },
 ];
 

@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { journalDb } from "@/lib/journal";
+import { mindMirageDb } from "@/lib/db";
 import { Card, EmptyRow, PageHeader, Stat } from "../ui";
 import CouponsManager from "./CouponsManager";
 
 export const metadata: Metadata = { title: "Coupons" };
 
 async function loadCoupons() {
-  const db = journalDb();
+  const db = mindMirageDb();
   if (!db) return [];
   const rs = await db.execute(
     "SELECT code, percent, active, created_at FROM coupons ORDER BY created_at DESC",

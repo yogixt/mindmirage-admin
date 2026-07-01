@@ -1,35 +1,39 @@
 import type { Metadata } from "next";
-import { journalDb } from "@/lib/journal";
+import { mindMirageDb } from "@/lib/db";
 import { Card, EmptyRow, PageHeader, Stat } from "../ui";
 import InboxList, { type Entry } from "./InboxList";
 
 export const metadata: Metadata = { title: "Inbox" };
 
 async function loadEntries(): Promise<Entry[]> {
-  const db = journalDb();
+  const db = mindMirageDb();
   if (!db) return [];
-  const rs = await db.execute(
-    "SELECT id, kind, name, email, whatsapp, payload, status, reply, created_at FROM form_entries ORDER BY created_at DESC LIMIT 500",
-  );
-  return rs.rows.map((r) => {
-    let details: Record<string, string> = {};
-    try {
-      details = JSON.parse(String(r.payload ?? "{}"));
-    } catch {
-      // ignore malformed payloads
-    }
-    return {
-      id: Number(r.id),
-      kind: String(r.kind),
-      name: String(r.name ?? "—"),
-      email: String(r.email ?? "—"),
-      whatsapp: r.whatsapp ? String(r.whatsapp) : null,
-      details,
-      status: String(r.status),
-      createdAt: String(r.created_at),
-      reply: r.reply ? String(r.reply) : null,
-    };
-  });
+  try {
+    const rs = await db.execute(
+      "SELECT id, kind, name, email, whatsapp, payload, status, reply, created_at FROM form_entries ORDER BY created_at DESC LIMIT 500",
+    );
+    return rs.rows.map((r) => {
+      let details: Record<string, string> = {};
+      try {
+        details = JSON.parse(String(r.payload ?? "{}"));
+      } catch {
+        // ignore malformed payloads
+      }
+      return {
+        id: Number(r.id),
+        kind: String(r.kind),
+        name: String(r.name ?? "—"),
+        email: String(r.email ?? "—"),
+        whatsapp: r.whatsapp ? String(r.whatsapp) : null,
+        details,
+        status: String(r.status),
+        createdAt: String(r.created_at),
+        reply: r.reply ? String(r.reply) : null,
+      };
+    });
+  } catch {
+    return [];
+  }
 }
 
 export default async function InboxPage() {

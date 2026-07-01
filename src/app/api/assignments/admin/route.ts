@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdmin } from "@/lib/auth";
-import { journalDb } from "@/lib/journal";
+import { mindMirageDb } from "@/lib/db";
 
 /* Team-only: upload assignment questions per course + lesson, and review
    submissions. Approving unlocks the sādhak's next lesson. */
@@ -10,7 +10,7 @@ export async function GET() {
   if (!(await isAdmin())) {
     return NextResponse.json({ ok: false, error: "team_only" }, { status: 403 });
   }
-  const db = journalDb();
+  const db = mindMirageDb();
   if (!db) return NextResponse.json({ ok: true, pending: [], questions: [] });
 
   const pending = await db.execute(
@@ -77,7 +77,7 @@ export async function POST(req: Request) {
   if (!(await isAdmin())) {
     return NextResponse.json({ ok: false, error: "team_only" }, { status: 403 });
   }
-  const db = journalDb();
+  const db = mindMirageDb();
   if (!db) {
     return NextResponse.json({ ok: false, error: "not_configured" }, { status: 503 });
   }

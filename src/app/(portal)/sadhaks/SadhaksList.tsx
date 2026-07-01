@@ -15,6 +15,8 @@ export type SadhakRow = {
   bio: string;
   intention: string;
   avatar: string | null;
+  googleImage: string | null;
+  phone: string;
   enrolled: string[];
 };
 
@@ -71,10 +73,10 @@ export default function SadhaksList({ sadhaks }: { sadhaks: SadhakRow[] }) {
             <Card key={s.userId} delay={Math.min(i, 8) * 0.03}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex min-w-0 items-start gap-3">
-                  {s.avatar ? (
+                  {s.avatar || s.googleImage ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={s.avatar}
+                      src={s.avatar || s.googleImage!}
                       alt=""
                       className="size-11 shrink-0 rounded-full object-cover ring-2 ring-[#E7EAF8]"
                     />
@@ -93,7 +95,8 @@ export default function SadhaksList({ sadhaks }: { sadhaks: SadhakRow[] }) {
                     )}
                   </div>
                   <p className="text-xs text-ink-faint">
-                    {s.email} · joined {s.joined}
+                    {s.email}
+                    {s.phone && ` · ${s.phone}`}
                     {s.city && ` · ${s.city}`}
                     {s.path && ` · path: ${s.path}`}
                   </p>

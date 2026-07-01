@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { POST_CATEGORIES } from "@/lib/journal";
+import { POST_CATEGORIES } from "@/lib/db";
 
 /* Full composer — category, title, body, photo URL, link. */
 
@@ -22,7 +22,7 @@ export default function NewPostForm() {
     const form = e.currentTarget;
     const fd = new FormData(form);
     try {
-      const res = await fetch("/api/newsletters", {
+      const res = await fetch("/api/vageshwari", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

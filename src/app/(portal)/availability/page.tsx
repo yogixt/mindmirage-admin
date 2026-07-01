@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { CATALOG, GUIDANCE_SUBJECTS } from "@/lib/constants";
-import { journalDb } from "@/lib/journal";
+import { CATALOG, GUIDANCE_SUBJECTS, scheduleForSubject } from "@/lib/constants";
+import { mindMirageDb } from "@/lib/db";
 import { Card, PageHeader } from "../ui";
 import AdminCalendar, { type DayDetail, type DayMarks } from "./AdminCalendar";
 
@@ -23,14 +23,14 @@ function niceTime(t: string) {
 }
 
 async function loadBlocked() {
-  const db = journalDb();
+  const db = mindMirageDb();
   if (!db) return [];
   const rs = await db.execute("SELECT date FROM blocked_dates ORDER BY date ASC");
   return rs.rows.map((r) => String(r.date));
 }
 
 async function loadMarks(): Promise<{ marks: DayMarks; details: Record<string, DayDetail[]> }> {
-  const db = journalDb();
+  const db = mindMirageDb();
   const marks: DayMarks = {};
   const details: Record<string, DayDetail[]> = {};
   const note = (date: string, d: DayDetail) => {
@@ -50,20 +50,20 @@ async function loadMarks(): Promise<{ marks: DayMarks; details: Record<string, D
   );
   for (const r of bookings.rows) {
     const status = String(r.status);
-    const morning = String(r.slot) === "morning-ist";
-    const slotLabel = morning ? "Morning IST" : "Evening IST";
     const subject =
       GUIDANCE_SUBJECTS.find((s) => s.slug === String(r.subject))?.name ??
       String(r.subject);
+    const rule = scheduleForSubject(String(r.subject));
+    const slotLabel = rule.flexible ? "Flexible" : rule.ist;
     const who = `${String(r.name)} — ${subject} · ${slotLabel}`;
     if (status === "approved" && r.approved_date) {
       for (const d of String(r.approved_date).split(",")) {
-        bump(d.trim(), morning ? "confM" : "confE");
+        bump(d.trim(), "confE");
         note(d.trim(), { label: who, tone: "conf" });
       }
     } else if (status === "new") {
       for (const d of String(r.preferred_dates).split(",")) {
-        bump(d.trim(), morning ? "askedM" : "askedE");
+        bump(d.trim(), "askedE");
         note(d.trim(), { label: who, tone: "asked" });
       }
     }
@@ -76,8 +76,9 @@ async function loadMarks(): Promise<{ marks: DayMarks; details: Record<string, D
     const course =
       CATALOG.find((c) => c.slug === String(r.course_slug))?.title ??
       String(r.course_slug);
+    const timeText = r.at_time ? `${String(r.at_time)} IST` : "time TBD";
     note(String(r.on_date), {
-      label: `Live class — ${course} at ${String(r.at_time)} IST`,
+      label: `Live class — ${course} at ${timeText}`,
       tone: "class",
     });
   }
@@ -85,7 +86,7 @@ async function loadMarks(): Promise<{ marks: DayMarks; details: Record<string, D
 }
 
 async function loadBookedSlots() {
-  const db = journalDb();
+  const db = mindMirageDb();
   if (!db) return [];
   const rs = await db.execute(
     "SELECT name, subject, slot, preferred_dates, status FROM bookings ORDER BY created_at DESC LIMIT 50",
@@ -93,14 +94,14 @@ async function loadBookedSlots() {
   return rs.rows.map((r) => ({
     name: String(r.name),
     subject: String(r.subject),
-    slot: String(r.slot) === "morning-ist" ? "Morning · IST" : "Evening · IST",
+    slot: scheduleForSubject(String(r.subject)).ist,
     dates: String(r.preferred_dates),
     status: String(r.status),
   }));
 }
 
 async function loadUpcoming() {
-  const db = journalDb();
+  const db = mindMirageDb();
   if (!db) return [];
   const rs = await db.execute(
     "SELECT course_slug, on_date, at_time, note FROM class_schedule WHERE on_date >= date('now') ORDER BY on_date ASC, at_time ASC LIMIT 30",
@@ -110,7 +111,7 @@ async function loadUpcoming() {
       CATALOG.find((c) => c.slug === String(r.course_slug))?.title ??
       String(r.course_slug),
     date: String(r.on_date),
-    time: String(r.at_time),
+    time: r.at_time ? String(r.at_time) : "TBD",
     note: r.note ? String(r.note) : null,
   }));
 }
@@ -186,13 +187,7 @@ export default async function AdminAvailabilityPage() {
                   <li key={i} className="px-5 py-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-sm font-semibold text-ink">{b.name}</p>
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                          b.slot.startsWith("Morning")
-                            ? "bg-amber-50 text-amber-700"
-                            : "bg-[#E8EBFD] text-[#4356E0]"
-                        }`}
-                      >
+                      <span className="rounded-full bg-[#E8EBFD] px-2.5 py-0.5 text-[11px] font-semibold text-[#4356E0]">
                         {b.slot}
                       </span>
                     </div>

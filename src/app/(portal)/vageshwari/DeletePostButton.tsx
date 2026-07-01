@@ -11,7 +11,7 @@ export default function DeletePostButton({ postId }: { postId: number }) {
   const remove = async () => {
     setBusy(true);
     try {
-      const res = await fetch(`/api/newsletters/${postId}`, { method: "DELETE" });
+      const res = await fetch(`/api/vageshwari/${postId}`, { method: "DELETE" });
       const data = await res.json();
       if (data.ok) router.refresh();
     } finally {

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { GUIDANCE_SUBJECTS } from "@/lib/constants";
-import { journalDb } from "@/lib/journal";
+import { GUIDANCE_SUBJECTS, scheduleForSubject } from "@/lib/constants";
+import { mindMirageDb, runMigrations } from "@/lib/db";
 import { Card, EmptyRow, PageHeader, Stat } from "../ui";
 import BookingStatus from "./BookingStatus";
 
@@ -18,11 +18,33 @@ type BookingRow = {
   message: string;
   status: string;
   createdAt: string;
+  paid: boolean;
+  photo: string | null;
 };
 
 async function loadBookings(): Promise<BookingRow[]> {
-  const db = journalDb();
+  await runMigrations();
+  const db = mindMirageDb();
   if (!db) return [];
+
+  const userPhotos: Map<string, string> = new Map();
+  try {
+    const ur = await db.execute("SELECT email, image FROM users WHERE image IS NOT NULL");
+    for (const r of ur.rows) {
+      const img = r.image ? String(r.image) : "";
+      if (img) userPhotos.set(String(r.email).toLowerCase(), img);
+    }
+  } catch { /* no users table */ }
+  try {
+    const pr = await db.execute(
+      "SELECT u.email, p.avatar FROM sadhak_profiles p JOIN users u ON u.id = p.user_id WHERE p.avatar IS NOT NULL AND p.avatar != ''",
+    );
+    for (const r of pr.rows) {
+      const a = r.avatar ? String(r.avatar) : "";
+      if (a) userPhotos.set(String(r.email).toLowerCase(), a);
+    }
+  } catch { /* no sadhak_profiles table */ }
+
   const rs = await db.execute(
     "SELECT * FROM bookings ORDER BY created_at DESC LIMIT 500",
   );
@@ -35,11 +57,13 @@ async function loadBookings(): Promise<BookingRow[]> {
     subject:
       GUIDANCE_SUBJECTS.find((s) => s.slug === String(r.subject))?.name ??
       String(r.subject),
-    slot: String(r.slot) === "morning-ist" ? "Morning · IST" : "Evening · IST",
+    slot: scheduleForSubject(String(r.subject)).ist,
     preferredDates: String(r.preferred_dates),
     message: String(r.message ?? ""),
     status: String(r.status),
     createdAt: String(r.created_at),
+    paid: r.paid ? Boolean(Number(r.paid)) : false,
+    photo: userPhotos.get(String(r.email).toLowerCase()) ?? null,
   }));
 }
 
@@ -52,7 +76,7 @@ export default async function AdminBookingsPage() {
       <PageHeader
         title="Bookings"
         deva="आरक्षण"
-        sub="Class requests from the consultation and counselling forms."
+        sub="Class requests from the consultation form."
       />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2">
@@ -69,12 +93,34 @@ export default async function AdminBookingsPage() {
           {bookings.map((b, i) => (
             <Card key={b.id} delay={0.12 + Math.min(i, 8) * 0.04}>
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
+                <div className="flex min-w-0 items-start gap-3">
+                  {b.photo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={b.photo}
+                      alt=""
+                      className="size-10 shrink-0 rounded-full object-cover ring-2 ring-[#E7EAF8]"
+                    />
+                  ) : (
+                    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#5B7CFA] to-[#3F51E8] text-sm font-bold text-white">
+                      {b.name.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                  <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-semibold text-ink">{b.name}</p>
                     {b.status === "new" && (
                       <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
                         New
+                      </span>
+                    )}
+                    {b.paid ? (
+                      <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                        Paid
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                        Unpaid
                       </span>
                     )}
                   </div>
@@ -93,8 +139,8 @@ export default async function AdminBookingsPage() {
                     </span>
                     {b.preferredDates
                       .split(",")
-                      .map((d) => d.trim())
-                      .filter(Boolean)
+                      .map((d) => d.trim().split(" ")[0])
+                      .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
                       .map((d) => (
                         <span
                           key={d}
@@ -115,7 +161,8 @@ export default async function AdminBookingsPage() {
                   )}
                   <p className="mt-2 text-[11px] text-ink-faint">{b.createdAt}</p>
                 </div>
-                <BookingStatus id={b.id} status={b.status} dates={b.preferredDates} approvedDate={b.approvedDate} />
+                  </div>
+                <BookingStatus id={b.id} status={b.status} dates={b.preferredDates} approvedDate={b.approvedDate} paid={b.paid} />
               </div>
             </Card>
           ))}

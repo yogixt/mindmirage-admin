@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { journalDb } from "@/lib/journal";
+import { mindMirageDb } from "@/lib/db";
 import { Card, EmptyRow, PageHeader, Stat } from "../ui";
 
 export const metadata: Metadata = { title: "Access log" };
 
 async function loadLogins() {
-  const db = journalDb();
+  const db = mindMirageDb();
   if (!db) return [];
   const rs = await db.execute(
     "SELECT id, email, ok, ip, user_agent, created_at FROM admin_logins ORDER BY id DESC LIMIT 200",

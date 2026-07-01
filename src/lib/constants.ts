@@ -58,14 +58,13 @@ export const SANSKRIT = {
 
 export const NAV_PRIMARY = [
   { href: "/programs", label: "Offerings" },
-  { href: "/newsletters", label: "Newsletters" },
+  { href: "/vageshwari", label: "Vageshwari" },
   { href: "/about-us", label: "About" },
   { href: "/contact", label: "Reach Us" },
 ] as const;
 
 export const NAV_FOOTER_SIT = [
   { href: "/mentorship", label: "Mentorship" },
-  { href: "/counselling", label: "Counselling" },
   { href: "/consultation", label: "Consultation" },
 ] as const;
 
@@ -83,7 +82,7 @@ export const NAV_FOOTER_RESEARCH = [
 ] as const;
 
 export const NAV_FOOTER_ENGAGE = [
-  { href: "/newsletters", label: "Newsletters" },
+  { href: "/vageshwari", label: "Vageshwari" },
   { href: "/internship", label: "Internship" },
   { href: "/volunteer", label: "Karma Yoga" },
   { href: "/faq", label: "FAQ" },
@@ -133,6 +132,10 @@ export type Course = {
   duration: string;
   prerequisites: string;
   priceINR: number;
+  /** Slug of the recorded variant if this is a live-only monthly option. */
+  parentSlug?: string;
+  /** Info about recorded-access period (e.g. "1.5 years"). */
+  recordedAccess?: string;
 };
 
 export const COURSES: Course[] = [
@@ -155,7 +158,7 @@ export const COURSES: Course[] = [
   },
   {
     slug: "bhagavad-gita",
-    formats: ["Self-paced", "Live classes on Zoom"],
+    formats: ["Recorded", "Live classes on Zoom"],
     title: "Bhagavad Gītā",
     deva: "भगवद्गीता",
     tradition: "Vedānta · Karma Yoga · Bhakti",
@@ -169,9 +172,10 @@ export const COURSES: Course[] = [
       "Bhakti Yoga — the path of devotion",
       "The universal form and the surrender of the small self",
     ],
-    duration: "Self-paced · ~5 months",
+    duration: "Recorded · 1.5 years access with Zoom storage",
     prerequisites: "Open mind. No Sanskrit required.",
-    priceINR: 5999,
+    priceINR: 18000,
+    recordedAccess: "1.5 years",
   },
   {
     slug: "advaita-vedanta",
@@ -212,6 +216,7 @@ export const COURSES: Course[] = [
   },
   {
     slug: "sankhya-darshan",
+    formats: ["Recorded"],
     title: "Sānkhya Darśan",
     deva: "सांख्य दर्शन",
     tradition: "Kapila's Cosmology",
@@ -223,9 +228,10 @@ export const COURSES: Course[] = [
       "The 24 evolutes of Prakṛti",
       "Liberation through discriminative knowledge",
     ],
-    duration: "Self-paced · ~2 months",
+    duration: "Recorded · 1.5 years access with Zoom storage",
     prerequisites: "None.",
-    priceINR: 3499,
+    priceINR: 18000,
+    recordedAccess: "1.5 years",
   },
   {
     slug: "buddhism",
@@ -247,7 +253,7 @@ export const COURSES: Course[] = [
   },
   {
     slug: "lalita-for-women",
-    formats: ["Self-paced", "Live classes on Zoom"],
+    formats: ["Live classes on Zoom"],
     title: "Lalitā for Women",
     deva: "ललिता",
     tradition: "Śākta · Śrī Vidyā",
@@ -259,9 +265,9 @@ export const COURSES: Course[] = [
       "The Śrī Cakra and its symbolism",
       "Daily contemplative practice",
     ],
-    duration: "Self-paced · ~4 months",
+    duration: "Live on Zoom · ₹800/month",
     prerequisites: "Open to women sādhaks of any background.",
-    priceINR: 4499,
+    priceINR: 800,
   },
   {
     slug: "jyotisha",
@@ -301,6 +307,7 @@ export type GuidanceSubject = {
 };
 
 export const GUIDANCE_SUBJECTS: GuidanceSubject[] = [
+  { slug: "bhagavad-gita-live", name: "Bhagavad Gītā · Live Monthly", deva: "भगवद्गीता", priceINR: 0, notes: "Monthly live cohort — Tue/Thu 7 pm IST" },
   { slug: "guided-meditation", name: "Guided Meditation", deva: "ध्यान", priceINR: 3000 },
   { slug: "pranayama", name: "Prāṇāyāma", deva: "प्राणायाम", priceINR: 3000 },
   { slug: "asanas", name: "Āsanas", deva: "आसन", priceINR: 3000 },
@@ -310,12 +317,33 @@ export const GUIDANCE_SUBJECTS: GuidanceSubject[] = [
   { slug: "western-philosophy", name: "Western Philosophy", priceINR: 5000 },
   { slug: "contemplation", name: "Contemplation", priceINR: 3000 },
   { slug: "mentorship", name: "Mentorship", priceINR: 0, notes: "Application-based — custom" },
+  { slug: "counselling-grihasthashrama", name: "Grihasthāshrama · Couple Counselling", deva: "गृहस्थाश्रम", priceINR: 2000 },
+  { slug: "counselling-rajaswala", name: "Rajaswalā · Pre-conception Counselling", deva: "रजस्वला", priceINR: 2000 },
+  { slug: "counselling-sadhak", name: "Sādhak · Yogic Life Counselling", deva: "साधक", priceINR: 2000 },
+  { slug: "counselling-vairagya", name: "Vairāgya · Post-trauma Counselling", deva: "वैराग्य", priceINR: 2000 },
+  { slug: "counselling-stridharma", name: "Strīdharma · Femininity Counselling", deva: "स्त्रीधर्म", priceINR: 2000 },
+  { slug: "counselling-purushdharma", name: "Puruṣdharma · Masculinity Counselling", deva: "पुरुषधर्म", priceINR: 2000 },
+  { slug: "counselling-balasanskar", name: "Bālasaṁskāra · Child Counselling", deva: "बालसंस्कार", priceINR: 2000 },
 ];
 
 /* 1:1 subjects as purchasable items — each is a complete course of eight
    classes on Zoom, bought through the same cart/checkout as courses. */
 export const SESSION_COURSES: Course[] = GUIDANCE_SUBJECTS.filter(
-  (s) => s.priceINR && s.priceINR > 0,
+  (s) => s.priceINR && s.priceINR > 0 && !s.slug.startsWith("counselling-"),
+).map((s) => ({
+  slug: `1on1-${s.slug}`,
+  title: s.name,
+  deva: s.deva ?? "",
+  tradition: "Live on Zoom",
+  excerpt: `Eight live classes on Zoom — ${s.name}.`,
+  syllabus: [],
+  duration: "Eight live classes",
+  prerequisites: "None.",
+  priceINR: s.priceINR as number,
+}));
+
+export const COUNSELLING_SESSION_COURSES: Course[] = GUIDANCE_SUBJECTS.filter(
+  (s) => s.priceINR && s.priceINR > 0 && s.slug.startsWith("counselling-"),
 ).map((s) => ({
   slug: `1on1-${s.slug}`,
   title: s.name,
@@ -336,9 +364,117 @@ export const BOOK_SETS: Course[] = [
   { slug: "booklist-advanced", title: "Booklist · Advanced", deva: "ग्रन्थसूची", tradition: "Booklist", excerpt: "The Advanced booklist from the ashram.", syllabus: [], duration: "Shipped by the ashram", prerequisites: "None.", priceINR: 5000 },
 ];
 
-/* Everything that can be added to the basket. */
-export const CATALOG: Course[] = [...COURSES, ...SESSION_COURSES, ...BOOK_SETS];
+/* Monthly live-class variants — linked to a parent recorded course. */
+export const MONTHLY_LIVE: Course[] = [
+  {
+    slug: "bhagavad-gita-live",
+    parentSlug: "bhagavad-gita",
+    formats: ["Live classes on Zoom"],
+    title: "Bhagavad Gītā · Live Monthly",
+    deva: "भगवद्गीता",
+    tradition: "Vedānta · Karma Yoga · Bhakti",
+    excerpt:
+      "Monthly live classes on Zoom — study the Gītā directly with the teacher, alongside fellow sādhaks.",
+    syllabus: [],
+    duration: "Monthly · ₹800/month",
+    prerequisites: "Open mind. No Sanskrit required.",
+    priceINR: 800,
+  },
+];
 
+/* Consultation pricing — single session & bulk pack. */
+export const CONSULTATION_SINGLE = { priceINR: 2000, duration: "45 min" };
+export const CONSULTATION_6_PACK = { priceINR: 11000, sessions: 6, slug: "consultation-6" };
+
+export const CONSULTATION_PRODUCTS: Course[] = [
+  {
+    slug: "consultation-single",
+    title: "Consultation · Single Session",
+    deva: "परामर्श",
+    tradition: "One-to-one with Guruji",
+    excerpt: "A single 45-minute one-to-one session with Acharya Ji on Zoom.",
+    syllabus: [],
+    duration: "45 min",
+    prerequisites: "Open mind.",
+    priceINR: 2000,
+  },
+  {
+    slug: "consultation-6",
+    title: "Consultation · 6-Session Pack",
+    deva: "परामर्श",
+    tradition: "One-to-one with Guruji",
+    excerpt: "Six 45-minute sessions with Acharya Ji on Zoom — save ₹1,000.",
+    syllabus: [],
+    duration: "6 × 45 min",
+    prerequisites: "Open mind.",
+    priceINR: 11000,
+  },
+  {
+    slug: "counselling-all",
+    title: "Counselling · All Fields",
+    deva: "परामर्श",
+    tradition: "One-to-one with Guruji",
+    excerpt: "All seven counselling fields — couple, pre-conception, yogic life, post-trauma, femininity, masculinity, child — at a bundled price.",
+    syllabus: [],
+    duration: "Per session",
+    prerequisites: "Open mind.",
+    priceINR: 11000,
+  },
+];
+
+/* Everything that can be added to the basket. */
+export const CATALOG: Course[] = [...COURSES, ...MONTHLY_LIVE, ...SESSION_COURSES, ...COUNSELLING_SESSION_COURSES, ...BOOK_SETS, ...CONSULTATION_PRODUCTS];
+
+/* Slot / scheduling rules for the consultation booking calendar.
+   - days: array of weekday numbers (0=Sun … 6=Sat). If omitted, all available days.
+   - flexible: the team and seeker decide the time together. */
+export type ScheduleRule = {
+  id: string;
+  label: string;
+  ist: string;
+  days?: number[];
+  flexible?: boolean;
+  allowPreference?: boolean;
+};
+
+export const SUBJECT_SCHEDULES: Record<string, ScheduleRule> = {
+  "bhagavad-gita-live": {
+    id: "gita-live-7pm",
+    label: "Gītā Live",
+    ist: "7:00 PM – 8:00 PM IST",
+    days: [2, 4], // Tuesday, Thursday
+  },
+  pranayama: {
+    id: "pranayama-flexible",
+    label: "Prāṇāyāma 1-1",
+    ist: "Decide with teacher",
+    flexible: true,
+  },
+  asanas: {
+    id: "asanas-flexible",
+    label: "Āsanas 1-1",
+    ist: "Decide with teacher",
+    flexible: true,
+  },
+  "lalita-for-women": {
+    id: "lalita-8pm",
+    label: "Lalitā for Women",
+    ist: "8:00 PM – 9:00 PM IST",
+    allowPreference: true,
+  },
+  default: {
+    id: "consultation-8pm",
+    label: "Evening Consultation",
+    ist: "8:00 PM – 9:00 PM IST",
+    allowPreference: true,
+  },
+};
+
+export function scheduleForSubject(slug: string): ScheduleRule {
+  return SUBJECT_SCHEDULES[slug] ?? SUBJECT_SCHEDULES.default;
+}
+
+/* @deprecated — kept for old references; use scheduleForSubject(). */
 export const SLOTS = [
   {
     id: "A",

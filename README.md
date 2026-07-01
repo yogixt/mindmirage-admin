@@ -6,7 +6,7 @@ Rishikesh). Team-only — gated by email allow-list and password.
 ## What it manages
 
 - Dashboard — sadhaks, orders, revenue, pending work at a glance
-- Newsletters — compose and publish to the enrolled sadhaks' feed
+- Vageshwari — compose and publish to the enrolled sadhaks' feed
 - Assignments — lesson uploads (text, files, video links), submission
   review with marks and remarks, per-sadhak progress
 - Availability — master calendar: blocked days, slot requests,

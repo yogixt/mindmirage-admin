@@ -79,7 +79,7 @@ export async function getSeekerUserId() {
   return email ? `admin:${email}` : null;
 }
 
-export async function canReadNewsletters() {
+export async function canReadVageshwari() {
   return isAdmin();
 }
 

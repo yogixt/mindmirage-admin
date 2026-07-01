@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdmin } from "@/lib/auth";
-import { journalDb } from "@/lib/journal";
+import { mindMirageDb } from "@/lib/db";
 import { CATALOG } from "@/lib/constants";
 
 /* Manual enrolment management — add or remove a course on a sādhak's
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "unknown_course" }, { status: 400 });
   }
 
-  const db = journalDb();
+  const db = mindMirageDb();
   if (!db) {
     return NextResponse.json({ ok: false, error: "no_database" }, { status: 500 });
   }

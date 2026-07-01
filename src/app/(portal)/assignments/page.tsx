@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { COURSES } from "@/lib/constants";
-import { journalDb } from "@/lib/journal";
+import { mindMirageDb } from "@/lib/db";
 import { Card, PageHeader } from "../ui";
 import AssignmentsManager from "./AssignmentsManager";
 import ScheduleManager, { type ClassSlot } from "./ScheduleManager";
@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Assignments" };
 export const dynamic = "force-dynamic";
 
 async function loadSadhaks() {
-  const db = journalDb();
+  const db = mindMirageDb();
   if (!db) return [];
   try {
     const rs = await db.execute("SELECT id, name, email, image, enrolled_programs FROM users");
@@ -37,7 +37,7 @@ async function loadSadhaks() {
 type Progress = { approved: number; pending: number };
 
 async function loadProgress() {
-  const db = journalDb();
+  const db = mindMirageDb();
   const perUser = new Map<string, Progress>(); // `${userId}:${course}`
   const maxLesson = new Map<string, number>();
   const avatars = new Map<string, string>();
@@ -68,7 +68,7 @@ async function loadProgress() {
 }
 
 async function loadSchedule(): Promise<ClassSlot[]> {
-  const db = journalDb();
+  const db = mindMirageDb();
   if (!db) return [];
   const rs = await db.execute(
     "SELECT * FROM class_schedule WHERE on_date >= date('now') ORDER BY on_date ASC, at_time ASC LIMIT 50",

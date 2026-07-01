@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdmin } from "@/lib/auth";
-import { journalDb } from "@/lib/journal";
+import { mindMirageDb } from "@/lib/db";
 
 /* Blocked dates for the booking calendar. GET is public (the form needs
    them); changes are team-only via the admin portal. */
 
 export async function GET() {
-  const db = journalDb();
+  const db = mindMirageDb();
   if (!db) return NextResponse.json({ ok: true, blocked: [] });
   const rs = await db.execute(
     "SELECT date FROM blocked_dates ORDER BY date ASC",
@@ -24,7 +24,7 @@ const BodySchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const db = journalDb();
+  const db = mindMirageDb();
   if (!db) {
     return NextResponse.json(
       { ok: false, error: "not_configured" },

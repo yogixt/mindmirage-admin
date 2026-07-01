@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdmin } from "@/lib/auth";
-import { journalDb } from "@/lib/journal";
+import { mindMirageDb } from "@/lib/db";
 
 const Body = z.discriminatedUnion("action", [
   z.object({
@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   if (!(await isAdmin())) {
     return NextResponse.json({ ok: false, error: "team_only" }, { status: 403 });
   }
-  const db = journalDb();
+  const db = mindMirageDb();
   if (!db) {
     return NextResponse.json({ ok: false, error: "not_configured" }, { status: 503 });
   }

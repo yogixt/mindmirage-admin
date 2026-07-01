@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { canReadNewsletters, getSeeker, getSeekerUserId, isAdmin } from "@/lib/auth";
-import { journalDb, listPosts, POST_CATEGORIES } from "@/lib/journal";
+import { canReadVageshwari, getSeeker, getSeekerUserId, isAdmin } from "@/lib/auth";
+import { mindMirageDb, listPosts, POST_CATEGORIES } from "@/lib/db";
 
 const BodySchema = z.object({
   title: z.string().min(5).max(200),
@@ -22,7 +22,7 @@ export async function GET() {
       { status: 401 },
     );
   }
-  if (!(await canReadNewsletters())) {
+  if (!(await canReadVageshwari())) {
     return NextResponse.json(
       { ok: false, error: "enrolled_only" },
       { status: 403 },
@@ -33,10 +33,10 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const db = journalDb();
+  const db = mindMirageDb();
   if (!db) {
     return NextResponse.json(
-      { ok: false, error: "newsletters_not_configured" },
+      { ok: false, error: "vageshwari_not_configured" },
       { status: 503 },
     );
   }

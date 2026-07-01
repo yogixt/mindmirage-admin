@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdmin } from "@/lib/auth";
-import { journalDb } from "@/lib/journal";
+import { mindMirageDb } from "@/lib/db";
+import { sendEmail } from "@/lib/notify";
 
 const Body = z.discriminatedUnion("action", [
   z.object({
@@ -16,32 +17,11 @@ const Body = z.discriminatedUnion("action", [
   }),
 ]);
 
-/* Best-effort email via Resend — works once RESEND_API_KEY is set. */
-async function sendReplyEmail(to: string, message: string): Promise<boolean> {
-  const key = process.env.RESEND_API_KEY;
-  if (!key || !to) return false;
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: process.env.NOTIFY_EMAIL_FROM ?? "Mind Mirage <onboarding@resend.dev>",
-        to: [to],
-        subject: "A reply from Mind Mirage",
-        html: `<div style="font-family:Georgia,serif;max-width:560px;white-space:pre-line">${message}</div><p style="color:#999;font-size:12px;margin-top:16px">Mind Mirage · Advaita Sadhana Kutir, Rishikesh · mindmirageindia.com</p>`,
-      }),
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
 export async function POST(req: Request) {
   if (!(await isAdmin())) {
     return NextResponse.json({ ok: false, error: "team_only" }, { status: 403 });
   }
-  const db = journalDb();
+  const db = mindMirageDb();
   if (!db) {
     return NextResponse.json({ ok: false, error: "not_configured" }, { status: 503 });
   }
@@ -74,6 +54,6 @@ export async function POST(req: Request) {
     sql: "UPDATE form_entries SET reply = ?, replied_at = datetime('now'), status = 'handled' WHERE id = ?",
     args: [message, id],
   });
-  const emailed = await sendReplyEmail(email, message);
+  const emailed = await sendEmail(email, "A reply from Mind Mirage", `<p>${message}</p>`);
   return NextResponse.json({ ok: true, emailed });
 }

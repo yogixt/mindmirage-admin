@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { journalDb } from "@/lib/journal";
+import { mindMirageDb } from "@/lib/db";
 import { Card, EmptyRow, PageHeader, Stat } from "../ui";
 import SadhaksList from "./SadhaksList";
 
@@ -16,11 +16,13 @@ type SadhakRow = {
   bio: string;
   intention: string;
   avatar: string | null;
+  googleImage: string | null;
+  phone: string;
   enrolled: string[];
 };
 
 async function loadSadhaks(): Promise<SadhakRow[]> {
-  const db = journalDb();
+  const db = mindMirageDb();
   if (!db) return [];
 
   const rs = await db.execute("SELECT * FROM users ORDER BY rowid DESC LIMIT 200");
@@ -61,6 +63,8 @@ async function loadSadhaks(): Promise<SadhakRow[]> {
       bio: e?.bio ?? "",
       intention: e?.intention ?? "",
       avatar: e?.avatar ?? null,
+      googleImage: r.image ? String(r.image) : null,
+      phone: r.phone ? String(r.phone) : "",
     };
   });
 }

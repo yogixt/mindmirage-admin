@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { journalDb, listPosts } from "@/lib/journal";
+import { mindMirageDb, listPosts } from "@/lib/db";
 import { Card, EmptyRow, PageHeader, Stat } from "../ui";
 import DeletePostButton from "./DeletePostButton";
 import NewPostForm from "./NewPostForm";
 
-export const metadata: Metadata = { title: "Newsletters" };
+export const metadata: Metadata = { title: "Vageshwari" };
 
 function formatDate(iso: string) {
   return new Date(iso.endsWith("Z") ? iso : `${iso}Z`).toLocaleDateString(
@@ -14,7 +14,7 @@ function formatDate(iso: string) {
 }
 
 async function engagement() {
-  const db = journalDb();
+  const db = mindMirageDb();
   if (!db) return { likes: 0, comments: 0 };
   const rs = await db.execute(
     "SELECT (SELECT COUNT(*) FROM post_likes) AS likes, (SELECT COUNT(*) FROM post_comments) AS comments",
@@ -25,14 +25,14 @@ async function engagement() {
   };
 }
 
-export default async function AdminNewslettersPage() {
+export default async function AdminVageshwariPage() {
   const posts = await listPosts();
   const { likes, comments } = await engagement();
 
   return (
     <>
       <PageHeader
-        title="Newsletters"
+        title="Vageshwari"
         deva="पत्रिका"
         sub="Everything posted here appears on the enrolled sadhaks' feed — they can read, like, and comment."
       />

@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { ADMIN_COOKIE, checkCredentials, makeToken } from "@/lib/auth";
-import { journalDb } from "@/lib/journal";
+import { mindMirageDb } from "@/lib/db";
+import { sendEmail, sendWhatsApp } from "@/lib/notify";
 
 /* Append-only audit trail — there is intentionally no API to edit or
    delete rows from admin_logins. */
 async function recordLogin(req: Request, email: string, ok: boolean) {
   try {
-    const db = journalDb();
+    const db = mindMirageDb();
     if (!db) return;
     const ip =
       req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
@@ -51,5 +52,17 @@ export async function POST(req: Request) {
     path: "/",
     maxAge: 60 * 60 * 24 * 30,
   });
+
+  /* Fire-and-forget welcome notification */
+  const clean = email.trim().toLowerCase();
+  Promise.all([
+    sendEmail(
+      clean,
+      "Welcome to Mind Mirage Admin",
+      `<p>You are now signed in to the Mind Mirage admin panel.</p><p>From here you can manage bookings, vageshwari, sadhaks, assignments, and more.</p><p style="margin-top:20px">— The team at Mind Mirage</p>`,
+    ),
+    sendWhatsApp(process.env.ADMIN_WHATSAPP ?? "", `You are now signed in to the Mind Mirage admin panel.`),
+  ]).catch(() => {});
+
   return res;
 }

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { journalDb } from "@/lib/journal";
+import { mindMirageDb } from "@/lib/db";
 import { Card, EmptyRow, PageHeader, Stat } from "../ui";
 
 export const metadata: Metadata = { title: "Orders" };
@@ -27,7 +27,7 @@ type PaymentEvent = {
 };
 
 async function loadEvents(): Promise<PaymentEvent[]> {
-  const db = journalDb();
+  const db = mindMirageDb();
   if (!db) return [];
   const rs = await db.execute(
     "SELECT * FROM payment_events ORDER BY id DESC LIMIT 200",
@@ -45,7 +45,7 @@ async function loadEvents(): Promise<PaymentEvent[]> {
 }
 
 async function loadOrders(): Promise<OrderRow[]> {
-  const db = journalDb();
+  const db = mindMirageDb();
   if (!db) return [];
   const rs = await db.execute(
     "SELECT id, payment_id, user_name, email, items, amount_inr, coupon, created_at FROM orders ORDER BY created_at DESC LIMIT 500",
@@ -68,6 +68,8 @@ export default async function AdminOrdersPage() {
   const revenue = orders.reduce((s, o) => s + o.amountINR, 0);
   const failed = events.filter((e) => e.status === "failed").length;
   const successful = events.filter((e) => e.status === "success").length;
+  const contributions = orders.filter((o) => o.items.startsWith("Contribution:"));
+  const contributionTotal = contributions.reduce((s, o) => s + o.amountINR, 0);
 
   return (
     <>
@@ -98,6 +100,31 @@ export default async function AdminOrdersPage() {
           delay={0.2}
         />
       </div>
+
+      {/* Contributions summary */}
+      {contributions.length > 0 && (
+        <Card delay={0.2} className="mb-6 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="eyebrow text-gold">Support the Word</p>
+              <p className="display mt-1 text-2xl text-ink">
+                {contributions.length} contribution{contributions.length > 1 ? "s" : ""}
+                <span className="ml-3 text-gold">₹{contributionTotal.toLocaleString("en-IN")}</span>
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {contributions.slice(-5).reverse().map((c) => (
+                <span
+                  key={c.id}
+                  className="rounded-full bg-gold/10 px-3 py-1 text-xs text-ink"
+                >
+                  {c.userName} · ₹{c.amountINR.toLocaleString("en-IN")}
+                </span>
+              ))}
+            </div>
+          </div>
+        </Card>
+      )}
 
       <Card delay={0.2} className="overflow-x-auto p-0">
         {orders.length === 0 ? (

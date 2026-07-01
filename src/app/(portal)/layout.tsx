@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSeeker } from "@/lib/auth";
+import { runMigrations } from "@/lib/db";
 import { SITE } from "@/lib/constants";
 import AdminNav, { LogoutButton } from "./AdminNav";
 import LoginWatcher from "./LoginWatcher";
@@ -11,6 +12,7 @@ export default async function PortalLayout({
 }: {
   children: React.ReactNode;
 }) {
+  await runMigrations();
   const admin = await getSeeker();
   if (!admin) redirect("/login");
   const initial = (admin.fullName?.[0] ?? "A").toUpperCase();
