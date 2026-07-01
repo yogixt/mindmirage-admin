@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     sendEmail(
       clean,
       "Welcome to Mind Mirage Admin",
-      `<p>You are now signed in to the Mind Mirage admin panel.</p><p>From here you can manage bookings, vageshwari, sadhaks, assignments, and more.</p><p style="margin-top:20px">— The team at Mind Mirage</p>`,
+      `<p>You are now signed in to the Mind Mirage admin panel.</p><p>From here you can manage bookings, brahmavadini, sadhaks, assignments, and more.</p><p style="margin-top:20px">— The team at Mind Mirage</p>`,
     ),
     sendWhatsApp(process.env.ADMIN_WHATSAPP ?? "", `You are now signed in to the Mind Mirage admin panel.`),
   ]).catch(() => {});

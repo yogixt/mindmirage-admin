@@ -4,7 +4,7 @@ import { Card, EmptyRow, PageHeader, Stat } from "../ui";
 import DeletePostButton from "./DeletePostButton";
 import NewPostForm from "./NewPostForm";
 
-export const metadata: Metadata = { title: "Vageshwari" };
+export const metadata: Metadata = { title: "Brahmavadini" };
 
 function formatDate(iso: string) {
   return new Date(iso.endsWith("Z") ? iso : `${iso}Z`).toLocaleDateString(
@@ -32,7 +32,7 @@ export default async function AdminVageshwariPage() {
   return (
     <>
       <PageHeader
-        title="Vageshwari"
+        title="Brahmavadini"
         deva="पत्रिका"
         sub="Everything posted here appears on the enrolled sadhaks' feed — they can read, like, and comment."
       />

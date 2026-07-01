@@ -58,7 +58,7 @@ export const SANSKRIT = {
 
 export const NAV_PRIMARY = [
   { href: "/programs", label: "Offerings" },
-  { href: "/vageshwari", label: "Vageshwari" },
+  { href: "/vageshwari", label: "Brahmavadini" },
   { href: "/about-us", label: "About" },
   { href: "/contact", label: "Reach Us" },
 ] as const;
@@ -82,7 +82,7 @@ export const NAV_FOOTER_RESEARCH = [
 ] as const;
 
 export const NAV_FOOTER_ENGAGE = [
-  { href: "/vageshwari", label: "Vageshwari" },
+  { href: "/vageshwari", label: "Brahmavadini" },
   { href: "/internship", label: "Internship" },
   { href: "/volunteer", label: "Karma Yoga" },
   { href: "/faq", label: "FAQ" },

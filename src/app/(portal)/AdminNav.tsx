@@ -20,7 +20,7 @@ import {
 
 const ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/vageshwari", label: "Vageshwari", icon: Newspaper },
+  { href: "/vageshwari", label: "Brahmavadini", icon: Newspaper },
   { href: "/assignments", label: "Assignments", icon: ClipboardCheck },
   { href: "/availability", label: "Availability", icon: CalendarDays },
   { href: "/bookings", label: "Bookings", icon: NotebookPen },
