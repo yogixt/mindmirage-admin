@@ -3,6 +3,10 @@
 Internal management portal for Mind Mirage (Advaita Sadhana Kutir,
 Rishikesh). Team-only — gated by email allow-list and password.
 
+**Live:** [mindmirage-admin.vercel.app](https://mindmirage-admin.vercel.app) (team login required)
+
+![Team portal login](docs/screenshot.png)
+
 ## What it manages
 
 - Dashboard — sadhaks, orders, revenue, pending work at a glance
