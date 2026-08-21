@@ -41,7 +41,7 @@ export type Membership = {
 const JYOTISHA_SESSION_TEMPLATE = [
   "Class 1", "Class 2", "Class 3", "Class 4", "Class 5",
   "Class 6", "Class 7", "Class 8", "Class 9", "Class 10",
-  "Extra class", "Chart reading",
+  "Extra class with chart reading",
 ];
 
 type Preset = "1_week" | "1_month" | "3_months" | "6_months" | "1_year" | "lifetime" | "custom";

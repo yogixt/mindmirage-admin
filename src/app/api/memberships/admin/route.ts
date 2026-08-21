@@ -58,13 +58,13 @@ function buildSessionItems(labels: string[]): SessionItem[] {
 const SESSION_TEMPLATE_JYOTISHA: string[] = [
   "Class 1", "Class 2", "Class 3", "Class 4", "Class 5",
   "Class 6", "Class 7", "Class 8", "Class 9", "Class 10",
-  "Extra class", "Chart reading",
+  "Extra class with chart reading",
 ];
 const SESSION_SLUGS: Record<string, { label: string; template: string[] }> = {
-  jyotisha: { label: "10 classes + 1 extra class + chart reading", template: SESSION_TEMPLATE_JYOTISHA },
-  "jyotisha-l1": { label: "10 classes + 1 extra class + chart reading", template: SESSION_TEMPLATE_JYOTISHA },
-  "jyotisha-l2": { label: "10 classes + 1 extra class + chart reading", template: SESSION_TEMPLATE_JYOTISHA },
-  "jyotisha-l3": { label: "10 classes + 1 extra class + chart reading", template: SESSION_TEMPLATE_JYOTISHA },
+  jyotisha: { label: "10 classes + 1 extra class with chart reading", template: SESSION_TEMPLATE_JYOTISHA },
+  "jyotisha-l1": { label: "10 classes + 1 extra class with chart reading", template: SESSION_TEMPLATE_JYOTISHA },
+  "jyotisha-l2": { label: "10 classes + 1 extra class with chart reading", template: SESSION_TEMPLATE_JYOTISHA },
+  "jyotisha-l3": { label: "10 classes + 1 extra class with chart reading", template: SESSION_TEMPLATE_JYOTISHA },
 };
 
 /* What each course's own page actually promises for access, taken from
