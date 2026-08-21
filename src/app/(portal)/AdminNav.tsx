@@ -17,6 +17,7 @@ import {
   Sparkles,
   Flower2,
   GraduationCap,
+  CalendarClock,
 } from "lucide-react";
 
 const ITEMS = [
@@ -30,6 +31,7 @@ const ITEMS = [
   { href: "/sadhaks", label: "Sadhaks", icon: Users },
   { href: "/orders", label: "Orders", icon: ShoppingBag },
   { href: "/enrolments", label: "Enrolments", icon: GraduationCap },
+  { href: "/memberships", label: "Memberships", icon: CalendarClock },
   { href: "/coupons", label: "Coupons", icon: TicketPercent },
   { href: "/assistant", label: "Kutir AI Assistant", icon: Sparkles },
   { href: "/access", label: "Access log", icon: ShieldCheck },

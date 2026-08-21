@@ -168,6 +168,29 @@ export async function runMigrations() {
     );
   } catch { /* exists */ }
 
+  /* Time-limited course access — the Memberships page. Independent of
+     enrollment_grants: not every access grant here comes from a Razorpay
+     payment (cash/offline sales, complimentary access from Acharya Ji), and
+     not every course has a duration at all — most catalog purchases are
+     permanent. This table exists purely so the team can track "so-and-so
+     has this course for one year, expiring on this date" and see it coming. */
+  try {
+    await db.execute(`CREATE TABLE IF NOT EXISTS course_access (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sadhak_name TEXT NOT NULL,
+      sadhak_email TEXT,
+      course_label TEXT NOT NULL,
+      starts_on TEXT NOT NULL,
+      duration_label TEXT NOT NULL,
+      duration_days INTEGER,
+      expires_on TEXT,
+      notes TEXT,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    )`);
+  } catch { /* exists */ }
+
   migrated = true;
 }
 
