@@ -29,6 +29,8 @@ DATABASE SCHEMA:
 - form_entries(id INTEGER PRIMARY KEY, kind TEXT, name TEXT, email TEXT, whatsapp TEXT, payload TEXT, status TEXT, reply TEXT, replied_at TEXT, created_at TEXT)
 - payment_events(id INTEGER PRIMARY KEY, status TEXT, payment_id TEXT, order_id TEXT, user_name TEXT, email TEXT, reason TEXT, created_at TEXT)
 - admin_logins(id INTEGER PRIMARY KEY, email TEXT, ok INTEGER, ip TEXT, user_agent TEXT, created_at TEXT)
+- enrollment_grants(id INTEGER PRIMARY KEY, payment_id TEXT, slug TEXT, title TEXT, payer_user_id TEXT, payer_name TEXT, payer_email TEXT, for_name TEXT, for_email TEXT, for_self INTEGER, granted_user_id TEXT, granted_at TEXT, created_at TEXT)
+- course_access(id INTEGER PRIMARY KEY, sadhak_name TEXT, sadhak_email TEXT, course_label TEXT, starts_on TEXT, duration_label TEXT, duration_days INTEGER, expires_on TEXT, notes TEXT, status TEXT, tracking_type TEXT, session_items TEXT, created_at TEXT, updated_at TEXT)
 
 GUIDELINES:
 - When asked about consultation logs, bookings, details, calendars, payments, sadhaks, or assignments, ALWAYS execute a read-only SELECT query first using "run_sql_query".
@@ -39,6 +41,51 @@ GUIDELINES:
 - If you find no records, state that clearly.
 - Keep answers professional, clear, and direct.`;
 
+const TOOLS = [
+  {
+    name: "run_sql_query",
+    description: "Run a read-only SQLite SELECT query against the database.",
+    input_schema: {
+      type: "object",
+      properties: {
+        sql: {
+          type: "string",
+          description: "The SQL SELECT statement. Must be read-only SELECT query.",
+        },
+      },
+      required: ["sql"],
+    },
+  },
+];
+
+type ContentBlock =
+  | { type: "text"; text: string }
+  | { type: "tool_use"; id: string; name: string; input: { sql?: string } }
+  | { type: "tool_result"; tool_use_id: string; content: string };
+
+type AnthropicMessage = { role: "user" | "assistant"; content: string | ContentBlock[] };
+
+async function runSqlQuery(sql: unknown): Promise<string> {
+  try {
+    if (typeof sql !== "string") {
+      return JSON.stringify({ error: "sql must be a string" });
+    }
+    const blockedPattern = /\b(insert|update|delete|drop|alter|create|replace)\b/i;
+    const hasSelect = /\bselect\b/i.test(sql);
+    if (blockedPattern.test(sql) || !hasSelect) {
+      return JSON.stringify({ error: "Only read-only SELECT queries are allowed." });
+    }
+    const db = mindMirageDb();
+    if (!db) {
+      return JSON.stringify({ error: "Database not connected" });
+    }
+    const queryRes = await db.execute(sql);
+    return JSON.stringify({ rows: queryRes.rows });
+  } catch (err) {
+    return JSON.stringify({ error: err instanceof Error ? err.message : String(err) });
+  }
+}
+
 export async function POST(req: Request) {
   if (!(await isAdmin())) {
     return NextResponse.json({ ok: false, error: "team_only" }, { status: 403 });
@@ -47,112 +94,72 @@ export async function POST(req: Request) {
   let body;
   try {
     body = Body.parse(await req.json());
-  } catch (e) {
+  } catch {
     return NextResponse.json({ ok: false, error: "invalid_request" }, { status: 400 });
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ ok: false, error: "openai_not_configured" }, { status: 503 });
+    return NextResponse.json({ ok: false, error: "anthropic_not_configured" }, { status: 503 });
   }
 
   try {
-    let currentMessages: any[] = [
-      { role: "system", content: SYSTEM_PROMPT },
-      ...body.messages,
-    ];
+    const currentMessages: AnthropicMessage[] = body.messages.map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
 
     let attempts = 0;
     let finalReply = "";
 
     while (attempts < 5) {
       attempts++;
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
-          model: "gpt-4o",
+          model: "claude-sonnet-5",
+          max_tokens: 4096,
+          system: SYSTEM_PROMPT,
           messages: currentMessages,
-          temperature: 0,
-          tools: [
-            {
-              type: "function",
-              function: {
-                name: "run_sql_query",
-                description: "Run a read-only SQLite SELECT query against the database.",
-                parameters: {
-                  type: "object",
-                  properties: {
-                    sql: {
-                      type: "string",
-                      description: "The SQL SELECT statement. Must be read-only SELECT query.",
-                    },
-                  },
-                  required: ["sql"],
-                },
-              },
-            },
-          ],
+          tools: TOOLS,
         }),
       });
 
       if (!res.ok) {
         const errText = await res.text();
-        console.error("[assistant] OpenAI API error:", errText);
-        throw new Error(`OpenAI API returned HTTP ${res.status}: ${errText}`);
+        console.error("[assistant] Anthropic API error:", errText);
+        throw new Error(`Anthropic API returned HTTP ${res.status}: ${errText}`);
       }
 
       const json = await res.json();
-      const choice = json.choices[0];
-      const message = choice.message;
+      const content: ContentBlock[] = json.content ?? [];
+      const toolUses = content.filter((b): b is Extract<ContentBlock, { type: "tool_use" }> => b.type === "tool_use");
 
-      if (message.tool_calls && message.tool_calls.length > 0) {
-        currentMessages.push({
-          role: "assistant",
-          content: message.content || "",
-          tool_calls: message.tool_calls,
-        });
+      if (json.stop_reason === "tool_use" && toolUses.length > 0) {
+        currentMessages.push({ role: "assistant", content });
 
-        for (const toolCall of message.tool_calls) {
-          if (toolCall.function.name === "run_sql_query") {
-            const args = JSON.parse(toolCall.function.arguments);
-            let resultText = "";
-            try {
-              const sql = args.sql;
-              const blockedPattern = /\b(insert|update|delete|drop|alter|create|replace)\b/i;
-              const hasSelect = /\bselect\b/i.test(sql);
-              if (blockedPattern.test(sql) || !hasSelect) {
-                resultText = JSON.stringify({ error: "Only read-only SELECT queries are allowed." });
-              } else {
-                const db = mindMirageDb();
-                if (!db) {
-                  resultText = JSON.stringify({ error: "Database not connected" });
-                } else {
-                  const queryRes = await db.execute(sql);
-                  resultText = JSON.stringify({ rows: queryRes.rows });
-                }
-              }
-            } catch (err) {
-              resultText = JSON.stringify({ error: err instanceof Error ? err.message : String(err) });
-            }
-
-            currentMessages.push({
-              role: "tool",
-              tool_call_id: toolCall.id,
-              name: "run_sql_query",
-              content: resultText,
-            });
-          }
+        const toolResults: ContentBlock[] = [];
+        for (const toolUse of toolUses) {
+          const resultText =
+            toolUse.name === "run_sql_query"
+              ? await runSqlQuery(toolUse.input?.sql)
+              : JSON.stringify({ error: `Unknown tool: ${toolUse.name}` });
+          toolResults.push({ type: "tool_result", tool_use_id: toolUse.id, content: resultText });
         }
+        currentMessages.push({ role: "user", content: toolResults });
       } else {
-        finalReply = message.content || "";
+        finalReply = content
+          .filter((b): b is Extract<ContentBlock, { type: "text" }> => b.type === "text")
+          .map((b) => b.text)
+          .join("\n");
         break;
       }
     }
-
 
     if (!finalReply) {
       finalReply = "I was unable to retrieve a response from the model. Please check the logs.";
