@@ -186,9 +186,23 @@ export async function runMigrations() {
       expires_on TEXT,
       notes TEXT,
       status TEXT NOT NULL DEFAULT 'active',
+      source_grant_id INTEGER,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     )`);
+  } catch { /* exists */ }
+
+  try {
+    await db.execute("ALTER TABLE course_access ADD COLUMN source_grant_id INTEGER");
+  } catch { /* exists */ }
+
+  /* Lets "Import from real purchases" re-run safely — a grant that's
+     already been imported is INSERT OR IGNORE'd instead of duplicated. */
+  try {
+    await db.execute(
+      `CREATE UNIQUE INDEX IF NOT EXISTS ux_course_access_source_grant
+       ON course_access(source_grant_id) WHERE source_grant_id IS NOT NULL`,
+    );
   } catch { /* exists */ }
 
   migrated = true;

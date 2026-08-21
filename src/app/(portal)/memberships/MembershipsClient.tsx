@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   Sparkles,
   CalendarDays,
+  DownloadCloud,
 } from "lucide-react";
 import { Card } from "../ui";
 
@@ -324,6 +325,7 @@ export default function MembershipsClient({ memberships }: { memberships: Member
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "urgent" | "expired" | "lifetime" | "cancelled">("all");
+  const [importMsg, setImportMsg] = useState<string | null>(null);
 
   const call = async (body: Record<string, unknown>) => {
     setBusy(true);
@@ -337,10 +339,10 @@ export default function MembershipsClient({ memberships }: { memberships: Member
       const data = await res.json();
       if (!data.ok) throw new Error();
       router.refresh();
-      return true;
+      return data as { ok: true; imported?: number };
     } catch {
       setError("Something went wrong — try again.");
-      return false;
+      return null;
     } finally {
       setBusy(false);
     }
@@ -389,6 +391,18 @@ export default function MembershipsClient({ memberships }: { memberships: Member
     if (!m) return;
     const from = m.expiresOn && m.expiresOn > TODAY ? m.expiresOn : TODAY;
     await call({ action: "renew", id, duration: { preset }, from });
+  };
+
+  const importReal = async () => {
+    setImportMsg(null);
+    const data = await call({ action: "import" });
+    if (!data) return;
+    const n = data.imported ?? 0;
+    setImportMsg(
+      n > 0
+        ? `Added ${n} sadhak${n === 1 ? "" : "s"} from real payments — showing as Lifetime access. Edit any of them to set a real duration.`
+        : "Everyone with a verified purchase is already here.",
+    );
   };
 
   // ── Overview numbers ──
@@ -761,6 +775,15 @@ export default function MembershipsClient({ memberships }: { memberships: Member
             </select>
             <button
               type="button"
+              disabled={busy}
+              onClick={importReal}
+              title="Pull in everyone whose payment already verified through Razorpay"
+              className="flex items-center gap-1.5 rounded-full border border-ink/10 px-4 py-2 text-xs font-semibold text-ink-soft transition-colors hover:border-[#5B7CFA]/40 hover:text-[#4356E0] disabled:opacity-50"
+            >
+              <DownloadCloud size={14} /> Import real purchases
+            </button>
+            <button
+              type="button"
               onClick={openAdd}
               className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[#5B7CFA] to-[#3F51E8] px-4 py-2 text-xs font-semibold text-white shadow-[0_8px_20px_-6px_rgba(79,90,230,0.6)] transition-transform hover:-translate-y-0.5"
             >
@@ -768,6 +791,12 @@ export default function MembershipsClient({ memberships }: { memberships: Member
             </button>
           </div>
         </div>
+
+        {importMsg && (
+          <div className="border-b border-ink/5 bg-[#F7F8FF] px-5 py-2.5 text-xs font-medium text-[#4356E0]">
+            {importMsg}
+          </div>
+        )}
 
         {visible.length === 0 ? (
           <p className="py-14 text-center text-sm text-ink-faint">
