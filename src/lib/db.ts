@@ -205,6 +205,18 @@ export async function runMigrations() {
     );
   } catch { /* exists */ }
 
+  /* Some programs aren't a calendar-expiry thing at all — Jyotiṣa is 1-on-1,
+     consumed one class at a time (10 classes + 1 extra class + a chart
+     reading per level), not "valid until a date". tracking_type switches a
+     row between the duration/expiry model above and this checklist model;
+     session_items holds the checklist as JSON: [{label, done, doneAt}]. */
+  try {
+    await db.execute("ALTER TABLE course_access ADD COLUMN tracking_type TEXT NOT NULL DEFAULT 'duration'");
+  } catch { /* exists */ }
+  try {
+    await db.execute("ALTER TABLE course_access ADD COLUMN session_items TEXT");
+  } catch { /* exists */ }
+
   migrated = true;
 }
 

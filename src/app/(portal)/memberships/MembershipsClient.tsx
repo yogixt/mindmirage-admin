@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { Card } from "../ui";
 
+export type SessionItem = { label: string; done: boolean; doneAt: string | null };
+
 export type Membership = {
   id: number;
   sadhakName: string;
@@ -32,7 +34,15 @@ export type Membership = {
   expiresOn: string | null;
   notes: string | null;
   status: "active" | "cancelled";
+  trackingType: "duration" | "sessions";
+  sessionItems: SessionItem[] | null;
 };
+
+const JYOTISHA_SESSION_TEMPLATE = [
+  "Class 1", "Class 2", "Class 3", "Class 4", "Class 5",
+  "Class 6", "Class 7", "Class 8", "Class 9", "Class 10",
+  "Extra class", "Chart reading",
+];
 
 type Preset = "1_week" | "1_month" | "3_months" | "6_months" | "1_year" | "lifetime" | "custom";
 
@@ -119,15 +129,30 @@ function Avatar({ name, size = 9 }: { name: string; size?: number }) {
 }
 
 /* Status derived purely from dates + the cancelled flag — never stored, so
-   it's always correct without a cron flipping rows at midnight. */
+   it's always correct without a cron flipping rows at midnight. Session-based
+   rows (live 1-on-1 programs, consumed one class at a time) derive status
+   from the checklist instead — there's no expiry to compare against. */
 function statusOf(m: Membership): {
-  key: "cancelled" | "lifetime" | "expired" | "urgent" | "healthy";
+  key: "cancelled" | "lifetime" | "expired" | "urgent" | "healthy" | "sessions_done" | "sessions_progress";
   label: string;
   dot: string;
   chip: string;
 } {
   if (m.status === "cancelled") {
     return { key: "cancelled", label: "Cancelled", dot: "bg-slate-400", chip: "bg-slate-100 text-slate-500" };
+  }
+  if (m.trackingType === "sessions") {
+    const items = m.sessionItems ?? [];
+    const done = items.filter((i) => i.done).length;
+    if (items.length > 0 && done === items.length) {
+      return { key: "sessions_done", label: "All sessions done", dot: "bg-emerald-500", chip: "bg-emerald-50 text-emerald-700" };
+    }
+    return {
+      key: "sessions_progress",
+      label: `${done} of ${items.length} done`,
+      dot: "bg-[#5B7CFA]",
+      chip: "bg-[#EEF1FE] text-[#4356E0]",
+    };
   }
   if (!m.expiresOn) {
     return { key: "lifetime", label: "Lifetime", dot: "bg-[#5B7CFA]", chip: "bg-[#EEF1FE] text-[#4356E0]" };
@@ -152,8 +177,10 @@ type FormState = {
   sadhakEmail: string;
   courseLabel: string;
   startsOn: string;
+  trackingType: "duration" | "sessions";
   preset: Preset;
   customDays: string;
+  sessionLabelsText: string;
   notes: string;
 };
 
@@ -162,8 +189,10 @@ const EMPTY_FORM: FormState = {
   sadhakEmail: "",
   courseLabel: "",
   startsOn: TODAY,
+  trackingType: "duration",
   preset: "1_year",
   customDays: "90",
+  sessionLabelsText: JYOTISHA_SESSION_TEMPLATE.join("\n"),
   notes: "",
 };
 
@@ -176,6 +205,7 @@ function RowMenu({
   onCancel,
   onReactivate,
   onDelete,
+  onOpenSessions,
 }: {
   membership: Membership;
   busy: boolean;
@@ -184,6 +214,7 @@ function RowMenu({
   onCancel: () => void;
   onReactivate: () => void;
   onDelete: () => void;
+  onOpenSessions: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [renewOpen, setRenewOpen] = useState(false);
@@ -244,13 +275,26 @@ function RowMenu({
               </div>
             ) : (
               <>
-                <button
-                  type="button"
-                  onClick={() => setRenewOpen(true)}
-                  className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-sm text-ink hover:bg-emerald-50 hover:text-emerald-700"
-                >
-                  <RotateCcw size={14} /> Renew
-                </button>
+                {membership.trackingType === "sessions" ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onOpenSessions();
+                      setOpen(false);
+                    }}
+                    className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-sm text-ink hover:bg-emerald-50 hover:text-emerald-700"
+                  >
+                    <CheckCircle2 size={14} /> Sessions
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setRenewOpen(true)}
+                    className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-sm text-ink hover:bg-emerald-50 hover:text-emerald-700"
+                  >
+                    <RotateCcw size={14} /> Renew
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {
@@ -314,9 +358,12 @@ export default function MembershipsClient({ memberships }: { memberships: Member
 
   const [panel, setPanel] = useState<{ mode: "add" | "edit"; id?: number } | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [sessionsFor, setSessionsFor] = useState<number | null>(null);
 
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<"all" | "urgent" | "expired" | "lifetime" | "cancelled">("all");
+  const [filter, setFilter] = useState<
+    "all" | "urgent" | "expired" | "lifetime" | "cancelled" | "sessions_progress" | "sessions_done"
+  >("all");
   const [importMsg, setImportMsg] = useState<string | null>(null);
 
   const call = async (body: Record<string, unknown>) => {
@@ -352,8 +399,13 @@ export default function MembershipsClient({ memberships }: { memberships: Member
       sadhakEmail: m.sadhakEmail ?? "",
       courseLabel: m.courseLabel,
       startsOn: m.startsOn,
+      trackingType: m.trackingType,
       preset: presetFromDays(m.durationDays),
       customDays: String(m.durationDays ?? 90),
+      sessionLabelsText:
+        m.trackingType === "sessions" && m.sessionItems
+          ? m.sessionItems.map((i) => i.label).join("\n")
+          : JYOTISHA_SESSION_TEMPLATE.join("\n"),
       notes: m.notes ?? "",
     });
     setError(null);
@@ -365,6 +417,14 @@ export default function MembershipsClient({ memberships }: { memberships: Member
       setError("Name, course, and start date are required.");
       return;
     }
+    const isSessions = form.trackingType === "sessions";
+    if (isSessions) {
+      const labels = form.sessionLabelsText.split("\n").map((s) => s.trim()).filter(Boolean);
+      if (labels.length === 0) {
+        setError("Add at least one session/class to track.");
+        return;
+      }
+    }
     const ok = await call({
       action: panel?.mode === "edit" ? "edit" : "add",
       id: panel?.id,
@@ -372,10 +432,18 @@ export default function MembershipsClient({ memberships }: { memberships: Member
       sadhakEmail: form.sadhakEmail.trim(),
       courseLabel: form.courseLabel.trim(),
       startsOn: form.startsOn,
-      duration: durationPayload(form),
+      trackingType: form.trackingType,
+      duration: isSessions ? undefined : durationPayload(form),
+      sessionLabels: isSessions
+        ? form.sessionLabelsText.split("\n").map((s) => s.trim()).filter(Boolean)
+        : undefined,
       notes: form.notes.trim(),
     });
     if (ok) setPanel(null);
+  };
+
+  const toggleSession = async (membershipId: number, index: number, done: boolean) => {
+    await call({ action: "toggleSession", id: membershipId, index, done });
   };
 
   const renew = async (id: number, preset: Preset) => {
@@ -564,6 +632,35 @@ export default function MembershipsClient({ memberships }: { memberships: Member
                     className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2.5 text-sm text-ink placeholder-ink-faint focus:outline-none focus:ring-2 focus:ring-[#5B7CFA]/50"
                   />
                 </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-ink-faint">
+                    How is access tracked?
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, trackingType: "duration" })}
+                      className={`flex-1 rounded-xl border px-3.5 py-2.5 text-sm font-semibold transition-colors ${
+                        form.trackingType === "duration"
+                          ? "border-[#5B7CFA] bg-[#EEF1FE] text-[#4356E0]"
+                          : "border-ink/10 text-ink-soft hover:border-ink/20"
+                      }`}
+                    >
+                      Time-based (duration)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, trackingType: "sessions" })}
+                      className={`flex-1 rounded-xl border px-3.5 py-2.5 text-sm font-semibold transition-colors ${
+                        form.trackingType === "sessions"
+                          ? "border-[#5B7CFA] bg-[#EEF1FE] text-[#4356E0]"
+                          : "border-ink/10 text-ink-soft hover:border-ink/20"
+                      }`}
+                    >
+                      Session-based (checklist)
+                    </button>
+                  </div>
+                </div>
                 <div>
                   <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-ink-faint">
                     Starts on
@@ -575,34 +672,51 @@ export default function MembershipsClient({ memberships }: { memberships: Member
                     className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-[#5B7CFA]/50"
                   />
                 </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-ink-faint">
-                    Duration
-                  </label>
-                  <div className="flex gap-2">
-                    <select
-                      value={form.preset}
-                      onChange={(e) => setForm({ ...form, preset: e.target.value as Preset })}
-                      className="flex-1 rounded-xl border border-ink/10 bg-white px-3.5 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-[#5B7CFA]/50"
-                    >
-                      {PRESETS.map((p) => (
-                        <option key={p.value} value={p.value}>
-                          {p.label}
-                        </option>
-                      ))}
-                    </select>
-                    {form.preset === "custom" && (
-                      <input
-                        value={form.customDays}
-                        onChange={(e) => setForm({ ...form, customDays: e.target.value })}
-                        type="number"
-                        min={1}
-                        placeholder="days"
-                        className="w-24 rounded-xl border border-ink/10 bg-white px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-[#5B7CFA]/50"
-                      />
-                    )}
+                {form.trackingType === "duration" ? (
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-ink-faint">
+                      Duration
+                    </label>
+                    <div className="flex gap-2">
+                      <select
+                        value={form.preset}
+                        onChange={(e) => setForm({ ...form, preset: e.target.value as Preset })}
+                        className="flex-1 rounded-xl border border-ink/10 bg-white px-3.5 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-[#5B7CFA]/50"
+                      >
+                        {PRESETS.map((p) => (
+                          <option key={p.value} value={p.value}>
+                            {p.label}
+                          </option>
+                        ))}
+                      </select>
+                      {form.preset === "custom" && (
+                        <input
+                          value={form.customDays}
+                          onChange={(e) => setForm({ ...form, customDays: e.target.value })}
+                          type="number"
+                          min={1}
+                          placeholder="days"
+                          className="w-24 rounded-xl border border-ink/10 bg-white px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-[#5B7CFA]/50"
+                        />
+                      )}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="sm:col-span-2">
+                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-ink-faint">
+                      Sessions to track — one per line
+                    </label>
+                    <textarea
+                      value={form.sessionLabelsText}
+                      onChange={(e) => setForm({ ...form, sessionLabelsText: e.target.value })}
+                      rows={5}
+                      className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2.5 font-mono text-xs text-ink focus:outline-none focus:ring-2 focus:ring-[#5B7CFA]/50"
+                    />
+                    <p className="mt-1 text-[11px] text-ink-faint">
+                      Defaults to the Jyotiṣa level structure — edit freely for other session-based programs.
+                    </p>
+                  </div>
+                )}
                 <div className="sm:col-span-2">
                   <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-ink-faint">
                     Notes (optional)
@@ -640,6 +754,85 @@ export default function MembershipsClient({ memberships }: { memberships: Member
         )}
       </AnimatePresence>
 
+      {/* ── Session checklist modal ── */}
+      <AnimatePresence>
+        {sessionsFor !== null && (() => {
+          const m = memberships.find((x) => x.id === sessionsFor);
+          if (!m) return null;
+          const items = m.sessionItems ?? [];
+          const done = items.filter((i) => i.done).length;
+          return (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4 backdrop-blur-[2px]"
+              onClick={() => setSessionsFor(null)}
+            >
+              <motion.div
+                initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 12, scale: 0.98 }}
+                transition={{ duration: 0.18 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-md rounded-3xl bg-white p-6 shadow-[0_30px_80px_-20px_rgba(30,41,59,0.4)]"
+              >
+                <div className="mb-1 flex items-center justify-between">
+                  <h2 className="text-lg font-bold text-ink">{m.sadhakName}</h2>
+                  <button
+                    type="button"
+                    onClick={() => setSessionsFor(null)}
+                    className="grid size-8 place-items-center rounded-full text-ink-faint hover:bg-ink/5 hover:text-ink"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                <p className="mb-4 text-xs text-ink-faint">{m.courseLabel}</p>
+
+                <div className="mb-3 h-2 overflow-hidden rounded-full bg-ink/5">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-[#5B7CFA] to-[#3F51E8] transition-all"
+                    style={{ width: `${items.length > 0 ? (done / items.length) * 100 : 0}%` }}
+                  />
+                </div>
+                <p className="mb-4 text-xs font-semibold text-ink-soft">
+                  {done} of {items.length} done
+                </p>
+
+                <ul className="max-h-80 space-y-1 overflow-y-auto pr-1">
+                  {items.map((item, i) => (
+                    <li key={i}>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => toggleSession(m.id, i, !item.done)}
+                        className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors ${
+                          item.done ? "bg-emerald-50 text-emerald-800" : "text-ink hover:bg-ink/[0.03]"
+                        }`}
+                      >
+                        <span
+                          className={`grid size-5 shrink-0 place-items-center rounded-md border-2 text-[11px] font-bold ${
+                            item.done
+                              ? "border-emerald-500 bg-emerald-500 text-white"
+                              : "border-ink/20 text-transparent"
+                          }`}
+                        >
+                          ✓
+                        </span>
+                        <span className="flex-1">{item.label}</span>
+                        {item.done && item.doneAt && (
+                          <span className="shrink-0 text-[11px] text-emerald-600">{niceDate(item.doneAt)}</span>
+                        )}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </motion.div>
+            </motion.div>
+          );
+        })()}
+      </AnimatePresence>
+
       {/* ── Memberships list ── */}
       <Card delay={0.2} className="overflow-visible p-0">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink/5 px-5 py-4">
@@ -668,6 +861,8 @@ export default function MembershipsClient({ memberships }: { memberships: Member
               <option value="urgent">Expiring soon</option>
               <option value="expired">Expired</option>
               <option value="lifetime">Lifetime</option>
+              <option value="sessions_progress">Sessions in progress</option>
+              <option value="sessions_done">Sessions complete</option>
               <option value="cancelled">Cancelled</option>
             </select>
             <button
@@ -734,8 +929,34 @@ export default function MembershipsClient({ memberships }: { memberships: Member
                       </td>
                       <td className="px-5 py-3.5 text-xs text-ink-faint">{niceDate(m.startsOn)}</td>
                       <td className="px-5 py-3.5 text-ink-soft">
-                        {m.durationLabel}
-                        {m.expiresOn && <p className="text-xs text-ink-faint">until {niceDate(m.expiresOn)}</p>}
+                        {m.trackingType === "sessions" ? (
+                          <button
+                            type="button"
+                            onClick={() => setSessionsFor(m.id)}
+                            className="group text-left"
+                          >
+                            <p className="text-xs font-semibold text-[#4356E0] group-hover:underline">
+                              {m.durationLabel}
+                            </p>
+                            <div className="mt-1 h-1.5 w-28 overflow-hidden rounded-full bg-ink/5">
+                              <div
+                                className="h-full rounded-full bg-gradient-to-r from-[#5B7CFA] to-[#3F51E8]"
+                                style={{
+                                  width: `${
+                                    m.sessionItems && m.sessionItems.length > 0
+                                      ? (m.sessionItems.filter((i) => i.done).length / m.sessionItems.length) * 100
+                                      : 0
+                                  }%`,
+                                }}
+                              />
+                            </div>
+                          </button>
+                        ) : (
+                          <>
+                            {m.durationLabel}
+                            {m.expiresOn && <p className="text-xs text-ink-faint">until {niceDate(m.expiresOn)}</p>}
+                          </>
+                        )}
                       </td>
                       <td className="px-5 py-3.5">
                         <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${s.chip}`}>
@@ -752,6 +973,7 @@ export default function MembershipsClient({ memberships }: { memberships: Member
                           onCancel={() => call({ action: "cancel", id: m.id })}
                           onReactivate={() => call({ action: "reactivate", id: m.id })}
                           onDelete={() => call({ action: "delete", id: m.id })}
+                          onOpenSessions={() => setSessionsFor(m.id)}
                         />
                       </td>
                     </tr>

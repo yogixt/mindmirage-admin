@@ -45,14 +45,36 @@ function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+type SessionItem = { label: string; done: boolean; doneAt: string | null };
+
+function buildSessionItems(labels: string[]): SessionItem[] {
+  return labels.map((label) => ({ label, done: false, doneAt: null }));
+}
+
+/* Jyotiṣa is taught entirely 1-on-1 — access isn't a calendar expiry, it's
+   consumed one class at a time. Confirmed structure: 10 classes + 1 extra
+   class + a chart reading, per level. Any slug here gets a checklist
+   instead of a duration on import. */
+const SESSION_TEMPLATE_JYOTISHA: string[] = [
+  "Class 1", "Class 2", "Class 3", "Class 4", "Class 5",
+  "Class 6", "Class 7", "Class 8", "Class 9", "Class 10",
+  "Extra class", "Chart reading",
+];
+const SESSION_SLUGS: Record<string, { label: string; template: string[] }> = {
+  jyotisha: { label: "10 classes + 1 extra class + chart reading", template: SESSION_TEMPLATE_JYOTISHA },
+  "jyotisha-l1": { label: "10 classes + 1 extra class + chart reading", template: SESSION_TEMPLATE_JYOTISHA },
+  "jyotisha-l2": { label: "10 classes + 1 extra class + chart reading", template: SESSION_TEMPLATE_JYOTISHA },
+  "jyotisha-l3": { label: "10 classes + 1 extra class + chart reading", template: SESSION_TEMPLATE_JYOTISHA },
+};
+
 /* What each course's own page actually promises for access, taken from
    mindmirage's catalog (src/lib/constants.ts — `recordedAccess` on COURSES,
    and the ₹800/month live cohorts in MONTHLY_LIVE). Course enrolment itself
    never expires anything server-side, but this is the duration the sadhak
    was actually sold, so imported memberships should reflect it instead of
-   a blanket "Lifetime". Anything not listed here is either live-only with
-   no recording to expire (jyotisha), or a one-off session/shipment
-   (consultations, booklists) — Lifetime is correct for those. */
+   a blanket "Lifetime". Anything not listed here (and not in SESSION_SLUGS
+   above) is a one-off session/shipment with no natural expiry — Lifetime is
+   correct for those. */
 const CATALOG_ACCESS_DAYS: Record<string, number> = {
   "bhagavad-gita": 365, // recordedAccess: "12 months"
   "advaita-vedanta": 365, // recordedAccess: "12 months"
@@ -79,7 +101,9 @@ const Body = z.discriminatedUnion("action", [
     sadhakEmail: z.string().email().optional().or(z.literal("")),
     courseLabel: z.string().min(1).max(160),
     startsOn: DateStr,
-    duration: DurationInput,
+    trackingType: z.enum(["duration", "sessions"]).optional().default("duration"),
+    duration: DurationInput.optional(),
+    sessionLabels: z.array(z.string().min(1).max(80)).min(1).max(60).optional(),
     notes: z.string().max(2000).optional().default(""),
   }),
   z.object({
@@ -89,7 +113,9 @@ const Body = z.discriminatedUnion("action", [
     sadhakEmail: z.string().email().optional().or(z.literal("")),
     courseLabel: z.string().min(1).max(160),
     startsOn: DateStr,
-    duration: DurationInput,
+    trackingType: z.enum(["duration", "sessions"]).optional().default("duration"),
+    duration: DurationInput.optional(),
+    sessionLabels: z.array(z.string().min(1).max(80)).min(1).max(60).optional(),
     notes: z.string().max(2000).optional().default(""),
   }),
   z.object({
@@ -103,6 +129,12 @@ const Body = z.discriminatedUnion("action", [
   z.object({ action: z.literal("cancel"), id: z.number().int() }),
   z.object({ action: z.literal("reactivate"), id: z.number().int() }),
   z.object({ action: z.literal("delete"), id: z.number().int() }),
+  z.object({
+    action: z.literal("toggleSession"),
+    id: z.number().int(),
+    index: z.number().int().min(0),
+    done: z.boolean(),
+  }),
   z.object({ action: z.literal("import") }),
 ]);
 
@@ -128,25 +160,56 @@ export async function POST(req: Request) {
   }
   const d = parsed.data;
 
-  if (d.action === "add") {
-    const { days, label } = durationDaysAndLabel(d.duration);
-    const expiresOn = days === null ? null : addDays(d.startsOn, days);
-    await db.execute({
-      sql: `INSERT INTO course_access
-            (sadhak_name, sadhak_email, course_label, starts_on, duration_label, duration_days, expires_on, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [d.sadhakName, d.sadhakEmail || null, d.courseLabel, d.startsOn, label, days, expiresOn, d.notes || null],
-    });
-  } else if (d.action === "edit") {
-    const { days, label } = durationDaysAndLabel(d.duration);
-    const expiresOn = days === null ? null : addDays(d.startsOn, days);
-    await db.execute({
-      sql: `UPDATE course_access
-            SET sadhak_name = ?, sadhak_email = ?, course_label = ?, starts_on = ?,
-                duration_label = ?, duration_days = ?, expires_on = ?, notes = ?, updated_at = datetime('now')
-            WHERE id = ?`,
-      args: [d.sadhakName, d.sadhakEmail || null, d.courseLabel, d.startsOn, label, days, expiresOn, d.notes || null, d.id],
-    });
+  if (d.action === "add" || d.action === "edit") {
+    const isSessions = d.trackingType === "sessions";
+    const labels = isSessions ? (d.sessionLabels && d.sessionLabels.length > 0 ? d.sessionLabels : SESSION_TEMPLATE_JYOTISHA) : null;
+    const sessionItems = labels ? JSON.stringify(buildSessionItems(labels)) : null;
+    const durationLabel = isSessions ? `0 of ${labels!.length} sessions` : durationDaysAndLabel(d.duration!).label;
+    const durationDays = isSessions ? null : durationDaysAndLabel(d.duration!).days;
+    const expiresOn = isSessions ? null : durationDays === null ? null : addDays(d.startsOn, durationDays);
+
+    if (d.action === "add") {
+      await db.execute({
+        sql: `INSERT INTO course_access
+              (sadhak_name, sadhak_email, course_label, starts_on, duration_label, duration_days, expires_on, notes, tracking_type, session_items)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [
+          d.sadhakName, d.sadhakEmail || null, d.courseLabel, d.startsOn,
+          durationLabel, durationDays, expiresOn, d.notes || null,
+          isSessions ? "sessions" : "duration", sessionItems,
+        ],
+      });
+    } else {
+      // Editing an existing entry keeps its current session progress if
+      // it's already session-based and staying that way — only a fresh
+      // switch into "sessions" (or an explicit new label set) resets it.
+      let finalSessionItems = sessionItems;
+      let finalDurationLabel = durationLabel;
+      if (isSessions && !d.sessionLabels) {
+        const existing = await db.execute({
+          sql: "SELECT tracking_type, session_items FROM course_access WHERE id = ?",
+          args: [d.id],
+        });
+        const row = existing.rows[0];
+        if (row && row.tracking_type === "sessions" && row.session_items) {
+          finalSessionItems = String(row.session_items);
+          const items = JSON.parse(finalSessionItems) as SessionItem[];
+          finalDurationLabel = `${items.filter((i) => i.done).length} of ${items.length} sessions`;
+        }
+      }
+      await db.execute({
+        sql: `UPDATE course_access
+              SET sadhak_name = ?, sadhak_email = ?, course_label = ?, starts_on = ?,
+                  duration_label = ?, duration_days = ?, expires_on = ?, notes = ?,
+                  tracking_type = ?, session_items = ?, updated_at = datetime('now')
+              WHERE id = ?`,
+        args: [
+          d.sadhakName, d.sadhakEmail || null, d.courseLabel, d.startsOn,
+          finalDurationLabel, durationDays, expiresOn, d.notes || null,
+          isSessions ? "sessions" : "duration", finalSessionItems, d.id,
+        ],
+      });
+    }
   } else if (d.action === "renew") {
     const { days, label } = durationDaysAndLabel(d.duration);
     const expiresOn = days === null ? null : addDays(d.from, days);
@@ -168,15 +231,35 @@ export async function POST(req: Request) {
     });
   } else if (d.action === "delete") {
     await db.execute({ sql: "DELETE FROM course_access WHERE id = ?", args: [d.id] });
+  } else if (d.action === "toggleSession") {
+    const existing = await db.execute({
+      sql: "SELECT session_items FROM course_access WHERE id = ? AND tracking_type = 'sessions'",
+      args: [d.id],
+    });
+    if (!existing.rows.length) {
+      return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    }
+    const items = JSON.parse(String(existing.rows[0].session_items ?? "[]")) as SessionItem[];
+    if (d.index >= items.length) {
+      return NextResponse.json({ ok: false, error: "bad_index" }, { status: 400 });
+    }
+    items[d.index] = { ...items[d.index], done: d.done, doneAt: d.done ? todayStr() : null };
+    const doneCount = items.filter((i) => i.done).length;
+    await db.execute({
+      sql: `UPDATE course_access
+            SET session_items = ?, duration_label = ?, updated_at = datetime('now')
+            WHERE id = ?`,
+      args: [JSON.stringify(items), `${doneCount} of ${items.length} sessions`, d.id],
+    });
   } else {
     // Pull in real, verified enrollments — enrollment_grants rows that
     // already have someone with access (granted_user_id set), meaning a
     // real Razorpay payment cleared and the course was actually granted.
-    // Duration comes from what that specific course actually promises
-    // (CATALOG_ACCESS_DAYS); anything not in that map is genuinely
-    // permanent (live-only courses, one-off sessions, shipped booklists),
-    // so it lands as Lifetime. source_grant_id keeps this idempotent —
-    // re-running only picks up newly granted courses.
+    // Session-based programs (SESSION_SLUGS) get a checklist; everything
+    // else gets a duration from what that course actually promises
+    // (CATALOG_ACCESS_DAYS, amount-paid override for ₹800 monthly cohorts),
+    // or Lifetime if neither applies. source_grant_id keeps this
+    // idempotent — re-running only picks up newly granted courses.
     const rs = await db.execute(`
       SELECT eg.id AS grant_id, eg.slug, eg.title, eg.for_self, eg.payer_name, eg.payer_email,
              eg.for_name, eg.for_email, eg.granted_at, eg.created_at,
@@ -193,8 +276,30 @@ export async function POST(req: Request) {
       if (sadhakEmail.endsWith("@no-email.mindmirage")) sadhakEmail = "";
       const startedRaw = String(row.order_created_at ?? row.granted_at ?? row.created_at ?? todayStr());
       const startsOn = startedRaw.slice(0, 10);
-
       const slug = String(row.slug);
+
+      const sessionProgram = SESSION_SLUGS[slug];
+      if (sessionProgram) {
+        const items = buildSessionItems(sessionProgram.template);
+        const insert = await db.execute({
+          sql: `INSERT OR IGNORE INTO course_access
+                (sadhak_name, sadhak_email, course_label, starts_on, duration_label, duration_days, expires_on, notes, status, source_grant_id, tracking_type, session_items)
+                VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, 'active', ?, 'sessions', ?)`,
+          args: [
+            sadhakName || "Unknown",
+            sadhakEmail || null,
+            String(row.title ?? row.slug),
+            startsOn,
+            `0 of ${items.length} sessions`,
+            "Imported from a completed payment",
+            row.grant_id,
+            JSON.stringify(items),
+          ],
+        });
+        if (insert.rowsAffected > 0) imported++;
+        continue;
+      }
+
       const orderAmount = row.order_amount === null ? null : Number(row.order_amount);
       const accessDays =
         orderAmount === MONTHLY_COHORT_RATE_INR ? 30 : (CATALOG_ACCESS_DAYS[slug] ?? null);
