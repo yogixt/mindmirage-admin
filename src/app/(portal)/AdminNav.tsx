@@ -16,6 +16,7 @@ import {
   Users,
   Sparkles,
   Flower2,
+  GraduationCap,
 } from "lucide-react";
 
 const ITEMS = [
@@ -28,6 +29,7 @@ const ITEMS = [
   { href: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/sadhaks", label: "Sadhaks", icon: Users },
   { href: "/orders", label: "Orders", icon: ShoppingBag },
+  { href: "/enrolments", label: "Enrolments", icon: GraduationCap },
   { href: "/coupons", label: "Coupons", icon: TicketPercent },
   { href: "/assistant", label: "Kutir AI Assistant", icon: Sparkles },
   { href: "/access", label: "Access log", icon: ShieldCheck },

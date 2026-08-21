@@ -52,6 +52,7 @@ export async function runMigrations() {
     "amount_inr INTEGER",
     "item_slug TEXT",
     "expires_at TEXT",
+    "for_self INTEGER NOT NULL DEFAULT 1",
   ];
   for (const col of bookingCols) {
     try {
@@ -100,6 +101,71 @@ export async function runMigrations() {
       note TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
+  } catch { /* exists */ }
+
+  /* Recorded purchases — shared schema with the public site, which writes
+     these rows; the admin portal only reads them (Orders page). */
+  try {
+    await db.execute(`CREATE TABLE IF NOT EXISTS orders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      payment_id TEXT NOT NULL UNIQUE,
+      order_id TEXT NOT NULL,
+      user_id TEXT,
+      user_name TEXT,
+      email TEXT,
+      items TEXT NOT NULL,
+      amount_inr INTEGER NOT NULL,
+      coupon TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    )`);
+  } catch { /* exists */ }
+
+  try {
+    await db.execute(`CREATE TABLE IF NOT EXISTS payment_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      status TEXT NOT NULL,
+      payment_id TEXT,
+      order_id TEXT,
+      user_name TEXT,
+      email TEXT,
+      reason TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    )`);
+  } catch { /* exists */ }
+
+  try {
+    await db.execute(
+      `CREATE UNIQUE INDEX IF NOT EXISTS ux_payment_events_payment_status
+       ON payment_events(payment_id, status) WHERE payment_id IS NOT NULL`,
+    );
+  } catch { /* exists */ }
+
+  /* Who has course access, one row per (payment, course) — shared schema
+     with the public site, which writes these rows; the admin portal reads
+     them on the Enrolments page. See mindmirage's db.ts for the full note. */
+  try {
+    await db.execute(`CREATE TABLE IF NOT EXISTS enrollment_grants (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      payment_id TEXT NOT NULL,
+      slug TEXT NOT NULL,
+      title TEXT,
+      payer_user_id TEXT,
+      payer_name TEXT,
+      payer_email TEXT,
+      for_name TEXT,
+      for_email TEXT,
+      for_self INTEGER NOT NULL DEFAULT 1,
+      granted_user_id TEXT,
+      granted_at TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    )`);
+  } catch { /* exists */ }
+
+  try {
+    await db.execute(
+      `CREATE UNIQUE INDEX IF NOT EXISTS ux_enrollment_grants_payment_slug
+       ON enrollment_grants(payment_id, slug)`,
+    );
   } catch { /* exists */ }
 
   migrated = true;

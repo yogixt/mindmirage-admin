@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { mindMirageDb } from "@/lib/db";
 import { Card, EmptyRow, PageHeader, Stat } from "../ui";
+import ReconcilePanel from "./ReconcilePanel";
 
 export const metadata: Metadata = { title: "Orders" };
 
@@ -77,6 +78,7 @@ export default async function AdminOrdersPage() {
         title="Orders"
         deva="क्रय"
         sub="Every purchase — who bought, which course, how much. Recorded at payment verification."
+        action={<ReconcilePanel />}
       />
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
