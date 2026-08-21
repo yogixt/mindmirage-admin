@@ -1,19 +1,9 @@
 import type { Metadata } from "next";
 import { mindMirageDb } from "@/lib/db";
-import { PageHeader, Stat } from "../ui";
+import { PageHeader } from "../ui";
 import MembershipsClient, { type Membership } from "./MembershipsClient";
 
 export const metadata: Metadata = { title: "Memberships" };
-
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function daysBetween(a: string, b: string): number {
-  return Math.round(
-    (new Date(`${b}T00:00:00`).getTime() - new Date(`${a}T00:00:00`).getTime()) / 86_400_000,
-  );
-}
 
 async function loadMemberships(): Promise<Membership[]> {
   const db = mindMirageDb();
@@ -39,16 +29,6 @@ async function loadMemberships(): Promise<Membership[]> {
 
 export default async function MembershipsPage() {
   const memberships = await loadMemberships();
-  const today = todayStr();
-
-  const active = memberships.filter((m) => m.status === "active");
-  const lifetime = active.filter((m) => m.expiresOn === null);
-  const timed = active.filter((m) => m.expiresOn !== null);
-  const expired = timed.filter((m) => daysBetween(today, m.expiresOn!) < 0);
-  const expiringSoon = timed.filter((m) => {
-    const r = daysBetween(today, m.expiresOn!);
-    return r >= 0 && r <= 7;
-  });
 
   return (
     <>
@@ -57,24 +37,6 @@ export default async function MembershipsPage() {
         deva="सदस्यता"
         sub="Time-limited course access — who has it, for how long, and what's expiring next."
       />
-
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat label="Active memberships" value={active.length} delay={0.05} />
-        <Stat
-          label="Expiring within 7 days"
-          value={expiringSoon.length}
-          accent={expiringSoon.length > 0 ? "text-amber-600" : "text-ink"}
-          delay={0.1}
-        />
-        <Stat
-          label="Expired, unrenewed"
-          value={expired.length}
-          accent={expired.length > 0 ? "text-rose-600" : "text-ink"}
-          delay={0.15}
-        />
-        <Stat label="Lifetime access" value={lifetime.length} accent="text-[#4356E0]" delay={0.2} />
-      </div>
-
       <MembershipsClient memberships={memberships} />
     </>
   );
