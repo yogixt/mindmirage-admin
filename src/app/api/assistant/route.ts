@@ -51,9 +51,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "invalid_request" }, { status: 400 });
   }
 
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ ok: false, error: "groq_not_configured" }, { status: 503 });
+    return NextResponse.json({ ok: false, error: "openai_not_configured" }, { status: 503 });
   }
 
   try {
@@ -67,14 +67,14 @@ export async function POST(req: Request) {
 
     while (attempts < 5) {
       attempts++;
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
+          model: "gpt-4o",
           messages: currentMessages,
           temperature: 0,
           tools: [
@@ -101,8 +101,8 @@ export async function POST(req: Request) {
 
       if (!res.ok) {
         const errText = await res.text();
-        console.error("[assistant] Groq API error:", errText);
-        throw new Error(`Groq API returned HTTP ${res.status}: ${errText}`);
+        console.error("[assistant] OpenAI API error:", errText);
+        throw new Error(`OpenAI API returned HTTP ${res.status}: ${errText}`);
       }
 
       const json = await res.json();
