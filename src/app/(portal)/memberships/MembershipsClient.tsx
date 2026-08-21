@@ -351,10 +351,18 @@ function RowMenu({
   );
 }
 
-export default function MembershipsClient({ memberships }: { memberships: Membership[] }) {
+export default function MembershipsClient({ memberships: initialMemberships }: { memberships: Membership[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Session checkbox clicks update this instantly (optimistic) instead of
+  // waiting on a full server round-trip + router.refresh() per click — that
+  // was the actual cause of "clicking feels slow". Every other action still
+  // goes through call() -> router.refresh(), which re-syncs this via the
+  // effect below.
+  const [memberships, setMemberships] = useState(initialMemberships);
+  useEffect(() => setMemberships(initialMemberships), [initialMemberships]);
 
   const [panel, setPanel] = useState<{ mode: "add" | "edit"; id?: number } | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -442,8 +450,41 @@ export default function MembershipsClient({ memberships }: { memberships: Member
     if (ok) setPanel(null);
   };
 
-  const toggleSession = async (membershipId: number, index: number, done: boolean) => {
-    await call({ action: "toggleSession", id: membershipId, index, done });
+  const toggleSession = (membershipId: number, index: number, done: boolean) => {
+    // Optimistic: flip it locally right away, save in the background, only
+    // touch state again if the save actually fails.
+    setMemberships((prev) =>
+      prev.map((m) => {
+        if (m.id !== membershipId || !m.sessionItems) return m;
+        const items = m.sessionItems.map((item, i) =>
+          i === index ? { ...item, done, doneAt: done ? TODAY : null } : item,
+        );
+        const doneCount = items.filter((item) => item.done).length;
+        return { ...m, sessionItems: items, durationLabel: `${doneCount} of ${items.length} sessions` };
+      }),
+    );
+    fetch("/api/memberships/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "toggleSession", id: membershipId, index, done }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data.ok) throw new Error();
+      })
+      .catch(() => {
+        setError("Couldn't save that session — reverted.");
+        setMemberships((prev) =>
+          prev.map((m) => {
+            if (m.id !== membershipId || !m.sessionItems) return m;
+            const items = m.sessionItems.map((item, i) =>
+              i === index ? { ...item, done: !done, doneAt: !done ? TODAY : null } : item,
+            );
+            const doneCount = items.filter((item) => item.done).length;
+            return { ...m, sessionItems: items, durationLabel: `${doneCount} of ${items.length} sessions` };
+          }),
+        );
+      });
   };
 
   const renew = async (id: number, preset: Preset) => {
@@ -804,7 +845,6 @@ export default function MembershipsClient({ memberships }: { memberships: Member
                     <li key={i}>
                       <button
                         type="button"
-                        disabled={busy}
                         onClick={() => toggleSession(m.id, i, !item.done)}
                         className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors ${
                           item.done ? "bg-emerald-50 text-emerald-800" : "text-ink hover:bg-ink/[0.03]"
