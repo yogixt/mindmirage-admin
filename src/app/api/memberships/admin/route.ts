@@ -62,6 +62,16 @@ const CATALOG_ACCESS_DAYS: Record<string, number> = {
   "advaita-vedanta-live": 30, // Monthly · ₹800/month
 };
 
+/* ₹800 is this ashram's flat rate for every monthly live cohort — proven by
+   bhagavad-gita-live and advaita-vedanta-live, both listed at exactly
+   ₹800/month. Not every monthly cohort has its own catalog slug though
+   (Lalitā for Women doesn't — a ₹800 payment for it still landed under the
+   base "lalita-for-women" slug, which normally means the full ₹30,000
+   2-year membership). So the amount actually paid overrides the slug
+   mapping: ₹800 always means one month, regardless of which slug it's
+   filed under, because nothing else in the catalog costs exactly that. */
+const MONTHLY_COHORT_RATE_INR = 800;
+
 const Body = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("add"),
@@ -170,7 +180,7 @@ export async function POST(req: Request) {
     const rs = await db.execute(`
       SELECT eg.id AS grant_id, eg.slug, eg.title, eg.for_self, eg.payer_name, eg.payer_email,
              eg.for_name, eg.for_email, eg.granted_at, eg.created_at,
-             o.created_at AS order_created_at
+             o.created_at AS order_created_at, o.amount_inr AS order_amount
       FROM enrollment_grants eg
       LEFT JOIN orders o ON o.payment_id = eg.payment_id
       WHERE eg.granted_user_id IS NOT NULL
@@ -185,7 +195,9 @@ export async function POST(req: Request) {
       const startsOn = startedRaw.slice(0, 10);
 
       const slug = String(row.slug);
-      const accessDays = CATALOG_ACCESS_DAYS[slug] ?? null;
+      const orderAmount = row.order_amount === null ? null : Number(row.order_amount);
+      const accessDays =
+        orderAmount === MONTHLY_COHORT_RATE_INR ? 30 : (CATALOG_ACCESS_DAYS[slug] ?? null);
       const durationLabel =
         accessDays === null
           ? "Lifetime"
