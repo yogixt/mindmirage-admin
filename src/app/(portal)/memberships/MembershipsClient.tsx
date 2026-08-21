@@ -11,15 +11,12 @@ import {
   Ban,
   CheckCircle2,
   Trash2,
-  ChevronLeft,
-  ChevronRight,
   Search,
   MoreVertical,
   Users,
   Clock3,
   AlertTriangle,
   Sparkles,
-  CalendarDays,
   DownloadCloud,
 } from "lucide-react";
 import { Card } from "../ui";
@@ -318,11 +315,6 @@ export default function MembershipsClient({ memberships }: { memberships: Member
   const [panel, setPanel] = useState<{ mode: "add" | "edit"; id?: number } | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
-  const [month, setMonth] = useState(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
-  });
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "urgent" | "expired" | "lifetime" | "cancelled">("all");
   const [importMsg, setImportMsg] = useState<string | null>(null);
@@ -427,33 +419,9 @@ export default function MembershipsClient({ memberships }: { memberships: Member
     [active],
   );
 
-  // ── Calendar ──
-  const cells = useMemo(() => {
-    const first = new Date(month.getFullYear(), month.getMonth(), 1);
-    const startOffset = first.getDay();
-    const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-    const list: (string | null)[] = Array(startOffset).fill(null);
-    for (let d = 1; d <= daysInMonth; d++) {
-      list.push(ymd(new Date(month.getFullYear(), month.getMonth(), d)));
-    }
-    return list;
-  }, [month]);
-
-  const expiryByDate = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const m of active) {
-      if (!m.expiresOn) continue;
-      map.set(m.expiresOn, (map.get(m.expiresOn) ?? 0) + 1);
-    }
-    return map;
-  }, [active]);
-
-  const monthName = month.toLocaleDateString("en-IN", { month: "long" });
-
   // ── List filtering ──
   const visible = useMemo(() => {
     let list = memberships;
-    if (selectedDate) list = list.filter((m) => m.expiresOn === selectedDate);
     if (filter !== "all") list = list.filter((m) => statusOf(m).key === filter);
     const q = query.trim().toLowerCase();
     if (q) {
@@ -468,12 +436,12 @@ export default function MembershipsClient({ memberships }: { memberships: Member
       const rank = (m: Membership) => (m.expiresOn ? new Date(m.expiresOn).getTime() : Infinity);
       return rank(a) - rank(b);
     });
-  }, [memberships, selectedDate, filter, query]);
+  }, [memberships, filter, query]);
 
   return (
     <div>
-      {/* ── Overview · Expiring soon · Calendar ── */}
-      <div className="mb-6 grid gap-5 lg:grid-cols-3">
+      {/* ── Overview · Expiring soon ── */}
+      <div className="mb-6 grid gap-5 lg:grid-cols-2">
         <Card delay={0.05} className="p-5">
           <p className="mb-4 flex items-center gap-2 text-sm font-bold text-ink">
             <Users size={16} className="text-[#4356E0]" /> Overview
@@ -528,77 +496,6 @@ export default function MembershipsClient({ memberships }: { memberships: Member
                 );
               })}
             </ul>
-          )}
-        </Card>
-
-        <Card delay={0.15} className="p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="flex items-center gap-2 text-sm font-bold text-ink">
-              <CalendarDays size={16} className="text-[#4356E0]" /> {monthName} {month.getFullYear()}
-            </p>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}
-                className="grid size-6 place-items-center rounded-full text-ink-faint hover:bg-ink/5 hover:text-ink"
-              >
-                <ChevronLeft size={14} />
-              </button>
-              <button
-                type="button"
-                onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}
-                className="grid size-6 place-items-center rounded-full text-ink-faint hover:bg-ink/5 hover:text-ink"
-              >
-                <ChevronRight size={14} />
-              </button>
-            </div>
-          </div>
-          <div className="grid grid-cols-7 gap-y-1 text-center">
-            {["S", "M", "T", "W", "T", "F", "S"].map((w, i) => (
-              <span key={i} className="text-[10px] font-semibold text-ink-faint">
-                {w}
-              </span>
-            ))}
-            {cells.map((date, i) => {
-              if (!date) return <div key={`x${i}`} />;
-              const day = Number(date.slice(8, 10));
-              const count = expiryByDate.get(date) ?? 0;
-              const isToday = date === TODAY;
-              const isSelected = date === selectedDate;
-              const urgent = count > 0 && daysBetween(TODAY, date) <= 14 && daysBetween(TODAY, date) >= 0;
-              return (
-                <button
-                  key={date}
-                  type="button"
-                  onClick={() => setSelectedDate(isSelected ? null : date)}
-                  className={`relative mx-auto grid size-8 place-items-center rounded-lg text-[12px] font-medium transition-all ${
-                    isSelected
-                      ? "bg-gradient-to-br from-[#5B7CFA] to-[#3F51E8] text-white shadow-sm"
-                      : isToday
-                        ? "bg-[#EEF1FE] text-[#4356E0] ring-1 ring-[#5B7CFA]/40"
-                        : "text-ink hover:bg-[#F5F6FE]"
-                  }`}
-                >
-                  {day}
-                  {count > 0 && (
-                    <span
-                      className={`absolute bottom-0.5 size-1 rounded-full ${
-                        isSelected ? "bg-white" : urgent ? "bg-amber-500" : "bg-[#5B7CFA]"
-                      }`}
-                    />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          {selectedDate && (
-            <button
-              type="button"
-              onClick={() => setSelectedDate(null)}
-              className="mt-3 flex w-full items-center justify-center gap-1 rounded-full bg-ink/5 px-3 py-1.5 text-xs font-semibold text-ink-soft hover:bg-ink/10"
-            >
-              <X size={11} /> Showing {niceDate(selectedDate)} only
-            </button>
           )}
         </Card>
       </div>

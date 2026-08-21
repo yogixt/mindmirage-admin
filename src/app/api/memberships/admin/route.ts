@@ -45,6 +45,23 @@ function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/* What each course's own page actually promises for access, taken from
+   mindmirage's catalog (src/lib/constants.ts — `recordedAccess` on COURSES,
+   and the ₹800/month live cohorts in MONTHLY_LIVE). Course enrolment itself
+   never expires anything server-side, but this is the duration the sadhak
+   was actually sold, so imported memberships should reflect it instead of
+   a blanket "Lifetime". Anything not listed here is either live-only with
+   no recording to expire (jyotisha), or a one-off session/shipment
+   (consultations, booklists) — Lifetime is correct for those. */
+const CATALOG_ACCESS_DAYS: Record<string, number> = {
+  "bhagavad-gita": 365, // recordedAccess: "12 months"
+  "advaita-vedanta": 365, // recordedAccess: "12 months"
+  "sankhya-darshan": 365, // recordedAccess: "1 year"
+  "lalita-for-women": 730, // recordedAccess: "2 years"
+  "bhagavad-gita-live": 30, // Monthly · ₹800/month
+  "advaita-vedanta-live": 30, // Monthly · ₹800/month
+};
+
 const Body = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("add"),
@@ -145,10 +162,11 @@ export async function POST(req: Request) {
     // Pull in real, verified enrollments — enrollment_grants rows that
     // already have someone with access (granted_user_id set), meaning a
     // real Razorpay payment cleared and the course was actually granted.
-    // No duration was ever attached to those purchases (site enrolment is
-    // permanent), so they land here as Lifetime; the team can edit any of
-    // them afterward to start tracking a real expiry. source_grant_id keeps
-    // this idempotent — re-running it only picks up newly granted courses.
+    // Duration comes from what that specific course actually promises
+    // (CATALOG_ACCESS_DAYS); anything not in that map is genuinely
+    // permanent (live-only courses, one-off sessions, shipped booklists),
+    // so it lands as Lifetime. source_grant_id keeps this idempotent —
+    // re-running only picks up newly granted courses.
     const rs = await db.execute(`
       SELECT eg.id AS grant_id, eg.slug, eg.title, eg.for_self, eg.payer_name, eg.payer_email,
              eg.for_name, eg.for_email, eg.granted_at, eg.created_at,
@@ -166,15 +184,32 @@ export async function POST(req: Request) {
       const startedRaw = String(row.order_created_at ?? row.granted_at ?? row.created_at ?? todayStr());
       const startsOn = startedRaw.slice(0, 10);
 
+      const slug = String(row.slug);
+      const accessDays = CATALOG_ACCESS_DAYS[slug] ?? null;
+      const durationLabel =
+        accessDays === null
+          ? "Lifetime"
+          : accessDays === 30
+            ? "1 month"
+            : accessDays === 365
+              ? "1 year"
+              : accessDays === 730
+                ? "2 years"
+                : `${accessDays} days`;
+      const expiresOn = accessDays === null ? null : addDays(startsOn, accessDays);
+
       const insert = await db.execute({
         sql: `INSERT OR IGNORE INTO course_access
               (sadhak_name, sadhak_email, course_label, starts_on, duration_label, duration_days, expires_on, notes, status, source_grant_id)
-              VALUES (?, ?, ?, ?, 'Lifetime', NULL, NULL, ?, 'active', ?)`,
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)`,
         args: [
           sadhakName || "Unknown",
           sadhakEmail || null,
           String(row.title ?? row.slug),
           startsOn,
+          durationLabel,
+          accessDays,
+          expiresOn,
           "Imported from a completed payment",
           row.grant_id,
         ],
